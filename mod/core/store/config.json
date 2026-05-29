@@ -1,0 +1,73 @@
+{
+    "name": "store",
+    "description": "Mod store \u2014 local KV + decentralized (filecoin + hippius) storage with MetaMask SIWE app",
+    "port": 50150,
+    "app_port": 50151,
+    "urls": {
+        "api": "http://localhost:50150",
+        "app": "http://localhost:50151"
+    },
+    "app": {
+        "framework": "next",
+        "dir": "app",
+        "port": 50151
+    },
+    "api": {
+        "module": "api.api",
+        "app_obj": "app",
+        "port": 50150
+    },
+    "backends": [
+        "filecoin",
+        "hippius",
+        "localfs"
+    ],
+    "endpoints": {
+        "nonce": {
+            "method": "GET",
+            "auth": false,
+            "docs": "Issue SIWE nonce"
+        },
+        "verify": {
+            "method": "POST",
+            "auth": false,
+            "docs": "Verify SIWE signature \u2192 session token"
+        },
+        "me": {
+            "method": "GET",
+            "auth": true,
+            "docs": "Current session address"
+        },
+        "put": {
+            "method": "POST",
+            "auth": true,
+            "docs": "Upload to filecoin / hippius / both"
+        },
+        "get": {
+            "method": "GET",
+            "auth": false,
+            "docs": "Retrieve by CID"
+        },
+        "list": {
+            "method": "GET",
+            "auth": true,
+            "docs": "List caller's objects"
+        },
+        "pin": {
+            "method": "POST",
+            "auth": true,
+            "docs": "Pin a CID"
+        },
+        "status": {
+            "method": "GET",
+            "auth": false,
+            "docs": "Module + backend status"
+        }
+    },
+    "env": {
+        "STORE_JWT_SECRET": "HMAC secret for session tokens",
+        "STORE_DOMAIN": "SIWE domain (default: localhost:50151)",
+        "STORE_ORIGIN": "SIWE origin URL (default: http://localhost:50151)"
+    },
+    "schema": "QmS3C3RP2XM1f6ZyNNY1aeoBBc2mrRAy35DWNhVhrvwq1Z"
+}

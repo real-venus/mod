@@ -1,5 +1,7 @@
 import os
 import shutil
+import threading
+import time
 from typing import Optional, Dict, Any, List, Union
 import mod as m
 
@@ -195,11 +197,11 @@ class Registry:
                 'local': True,
                 'path': mod_path,
             }
-            # Try to get schema for local module
+            # Pull desc from config (schema is lazy — fetched on demand)
             try:
-                local_schema = m.schema(mod_name)
-                if local_schema and isinstance(local_schema, dict):
-                    local_info['schema'] = local_schema
+                cfg = m.config(mod_name)
+                if isinstance(cfg, dict) and cfg.get('description'):
+                    local_info['desc'] = cfg['description']
             except Exception:
                 pass
             mods.append(local_info)
@@ -385,7 +387,7 @@ class Registry:
         clone_url = url
         if '/' in url and len(url.split('/')) == 2 and 'github.com' not in url:
             clone_url = f'https://github.com/{url}'
-        orbit = 'orbit' if self.is_owner(key) else 'portal'
+        orbit = 'orbit' if self.is_owner(key) else 'mods'
         dirpath = m.paths['orbit'][orbit]
         modpath = os.path.join(dirpath, key, name)
         if os.path.exists(modpath):
@@ -423,7 +425,7 @@ class Registry:
             mod_name = mod_info['name']
             content = self.get(mod_info['content'])
             owner_key = mod_info.get('key', self.key_address(key))
-            orbit = 'orbit' if self.is_owner(owner_key) else 'portal'
+            orbit = 'orbit' if self.is_owner(owner_key) else 'mods'
             modpath = os.path.join(m.paths['orbit'][orbit], owner_key, mod_name)
             for file, file_cid in content['data'].items():
                 file_content = self.get(file_cid)
@@ -454,7 +456,7 @@ class Registry:
             return info
 
         # Otherwise, write the config locally and register as a local mod
-        orbit = 'orbit' if self.is_owner(key) else 'portal'
+        orbit = 'orbit' if self.is_owner(key) else 'mods'
         modpath = os.path.join(m.paths['orbit'][orbit], key, name)
         os.makedirs(modpath, exist_ok=True)
         # Write the config.json
@@ -511,6 +513,19 @@ class Registry:
         if key in registry and mod in registry[key]:
             del registry[key][mod]
             m.put(self.registry_path, registry)
+        # Remove local module directory if it exists
+        try:
+            mod_path = m.dp(mod)
+        except (AssertionError, Exception):
+            mod_path = None
+        if mod_path and os.path.isdir(mod_path):
+            import shutil
+            shutil.rmtree(mod_path)
+        # Rebuild tree cache so mods() doesn't rediscover the deleted module
+        try:
+            m._tree.orbit('orbit', update=True)
+        except Exception:
+            m._tree.tree_cache.clear()
         return True
 
     # --- Schema ---
@@ -678,6 +693,77 @@ class Registry:
                 print(f"Error registering mod: {str(e)}")
         return results
 
+    # --- Schema sync & background worker ---
+
+    def sync_schemas(self, search=None, depth=1) -> Dict[str, str]:
+        """Compute schema for all modules, store as localfs CIDs, update config.json and registry."""
+        results = {}
+        for mod_name in m.mods(search=search, depth=depth):
+            try:
+                schema = m.schema(mod_name)
+                if not schema:
+                    continue
+                cid = self.put(schema)
+                # update config.json schema field to CID
+                mod_path = m.dp(mod_name)
+                if mod_path:
+                    config_path = os.path.join(mod_path, 'config.json')
+                    if os.path.exists(config_path):
+                        cfg = m.config(mod_name)
+                        if cfg.get('schema') != cid:
+                            cfg['schema'] = cid
+                            m.save_config(mod_name, cfg)
+                # update registry entry if registered
+                registry = m.get(self.registry_path, {})
+                key = self.key_address()
+                if key in registry and mod_name in registry[key]:
+                    mod_cid = registry[key][mod_name]
+                    try:
+                        mod_info = self.get(mod_cid)
+                        if mod_info.get('schema') != cid:
+                            mod_info['schema'] = cid
+                            mod_info['updated'] = m.time()
+                            new_cid = self.put(mod_info)
+                            registry[key][mod_name] = new_cid
+                            m.put(self.registry_path, registry)
+                    except Exception:
+                        pass
+                results[mod_name] = cid
+            except Exception as e:
+                results[mod_name] = f'error: {str(e)}'
+        return results
+
+    def start_worker(self, interval=300) -> dict:
+        """Start background schema sync worker (runs every `interval` seconds)."""
+        if hasattr(self, '_worker_thread') and self._worker_thread and self._worker_thread.is_alive():
+            return {'status': 'already_running', 'interval': interval}
+        self._worker_interval = interval
+        self._worker_running = True
+        self._worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
+        self._worker_thread.start()
+        return {'status': 'started', 'interval': interval}
+
+    def stop_worker(self) -> dict:
+        """Stop the background schema sync worker."""
+        self._worker_running = False
+        return {'status': 'stopped'}
+
+    def worker_status(self) -> dict:
+        """Check if the background worker is running."""
+        alive = hasattr(self, '_worker_thread') and self._worker_thread and self._worker_thread.is_alive()
+        return {
+            'running': alive,
+            'interval': getattr(self, '_worker_interval', None),
+        }
+
+    def _worker_loop(self):
+        while getattr(self, '_worker_running', False):
+            try:
+                self.sync_schemas()
+            except Exception as e:
+                print(f'[registry worker] sync error: {e}')
+            time.sleep(self._worker_interval)
+
     def reg_payload(self, mod: str = 'store', key=None, comment=None) -> Dict[str, Any]:
         """Generate registration payload without executing registration."""
         info = self.get_info(mod=mod, key=key, comment=comment)
@@ -707,6 +793,107 @@ class Registry:
         if decrypt:
             registry = self.key.decrypt(registry)
         return registry
+
+    # --- Mods root hash (local filesystem integrity) ---
+
+    def mods_root_hash(self, update=True) -> Dict[str, Any]:
+        """Compute the root hash of all mods in registry/mods/.
+
+        Walks the mods directory, hashes every file with SHA-256,
+        then hashes the sorted file-hash map to produce a deterministic root.
+
+        Returns:
+            {'root': <sha256>, 'tree': {relpath: <sha256>}, 'n_files': int, 'n_mods': int}
+        """
+        import hashlib, json as _json
+        mods_dir = m.paths['orbit']['mods']
+        if not os.path.isdir(mods_dir):
+            return {'root': None, 'tree': {}, 'n_files': 0, 'n_mods': 0}
+
+        file_hashes = {}
+        mod_set = set()
+        for dirpath, dirnames, filenames in os.walk(mods_dir):
+            dirnames[:] = [d for d in dirnames if not d.startswith('.')]
+            for fname in sorted(filenames):
+                if fname.startswith('.'):
+                    continue
+                fpath = os.path.join(dirpath, fname)
+                relpath = os.path.relpath(fpath, mods_dir)
+                with open(fpath, 'rb') as f:
+                    file_hashes[relpath] = hashlib.sha256(f.read()).hexdigest()
+                parts = relpath.split(os.sep)
+                if len(parts) >= 2:
+                    mod_set.add(f'{parts[0]}/{parts[1]}')
+
+        root_data = _json.dumps(file_hashes, sort_keys=True)
+        root = hashlib.sha256(root_data.encode()).hexdigest()
+        return {'root': root, 'tree': file_hashes, 'n_files': len(file_hashes), 'n_mods': len(mod_set)}
+
+    def commit_mods_root(self, comment=None, update=True) -> Dict[str, Any]:
+        """Commit the current mods root hash to the store.
+
+        Computes the filesystem hash, stores the tree as a CID,
+        and saves the root entry for later verification.
+
+        Returns:
+            {'root': <sha256>, 'cid': <store_cid>, 'n_files': int, 'n_mods': int}
+        """
+        info = self.mods_root_hash()
+        if not info['root']:
+            return {'error': 'no mods found', **info}
+
+        payload = {
+            'root': info['root'],
+            'tree': self.put(info['tree']),
+            'n_files': info['n_files'],
+            'n_mods': info['n_mods'],
+            'comment': comment,
+            'time': m.time(),
+        }
+        cid = self.put(payload)
+
+        # store the latest root CID for quick lookup
+        root_path = self.path('mods_root.json')
+        prev = m.get(root_path, None)
+        payload['prev'] = prev
+        payload['cid'] = cid
+        m.put(root_path, payload)
+
+        return {'root': info['root'], 'cid': cid, 'n_files': info['n_files'], 'n_mods': info['n_mods']}
+
+    def verify_mods_root(self) -> Dict[str, Any]:
+        """Verify the current mods directory matches the last committed root hash.
+
+        Returns:
+            {'valid': bool, 'current': <hash>, 'committed': <hash>, 'changed_files': [...]}
+        """
+        current = self.mods_root_hash()
+        root_path = self.path('mods_root.json')
+        committed = m.get(root_path, None)
+        if not committed:
+            return {'valid': False, 'error': 'no committed root', 'current': current['root']}
+
+        valid = current['root'] == committed['root']
+        changed = []
+        if not valid:
+            try:
+                committed_tree = self.get(committed['tree'])
+                all_files = set(current['tree'].keys()) | set(committed_tree.keys())
+                for f in sorted(all_files):
+                    cur = current['tree'].get(f)
+                    exp = committed_tree.get(f)
+                    if cur != exp:
+                        status = 'added' if exp is None else ('removed' if cur is None else 'modified')
+                        changed.append({'file': f, 'status': status})
+            except Exception:
+                pass
+
+        return {
+            'valid': valid,
+            'current': current['root'],
+            'committed': committed['root'],
+            'changed_files': changed,
+        }
 
     def dp(self, path: str, key=None) -> str:
         key = self.key_address(key)

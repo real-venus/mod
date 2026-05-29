@@ -1,0 +1,90 @@
+{
+    "name": "dev",
+    "version": "0.1.0",
+    "description": "Unified developer console \u2014 switches between claude and codex orchestrators, prompts for API keys with wallet-signature encryption, bundles tree as one CID",
+    "port": 8870,
+    "app_port": 8871,
+    "owner": "0x70f1DB27c2A64cabDd9888dD6C6F27cCBdE6D7C2",
+    "icon": "D",
+    "color": "#f59e0b",
+    "image": "https://cdn.simpleicons.org/dev-dot-to/ffffff",
+    "providers": {
+        "claude": {
+            "module": "claude",
+            "api": "http://claude:8820",
+            "app_base": "/claude",
+            "env_key": "ANTHROPIC_API_KEY"
+        },
+        "codex": {
+            "module": "codex",
+            "api": "http://codex:8830",
+            "app_base": "/codex",
+            "env_key": "OPENAI_API_KEY"
+        }
+    },
+    "fns": [
+        "forward",
+        "info",
+        "serve",
+        "bundle",
+        "register",
+        "providers",
+        "health"
+    ],
+    "schema": "QmR42K78yzcAWgX4axNt22aVDszoVTMVYeS1ycz3Sif5rP",
+    "endpoints": {
+        "/health": {
+            "method": "GET",
+            "auth": false,
+            "docs": "Health check"
+        },
+        "/config": {
+            "method": "GET",
+            "auth": false,
+            "docs": "Get module config.json"
+        },
+        "/providers": {
+            "method": "GET",
+            "auth": false,
+            "docs": "List available providers (claude, codex)"
+        },
+        "/key/{provider}": {
+            "method": [
+                "POST",
+                "GET"
+            ],
+            "auth": true,
+            "docs": "Submit or fetch encrypted API key ciphertext for a provider"
+        },
+        "/proxy/{provider}/{path:path}": {
+            "method": [
+                "GET",
+                "POST",
+                "DELETE"
+            ],
+            "auth": true,
+            "docs": "Proxy requests to the named provider backend"
+        },
+        "/bundle": {
+            "method": "POST",
+            "auth": true,
+            "docs": "Snapshot dev+claude+codex tree to localfs, return single CID (owner-only)"
+        },
+        "/register": {
+            "method": "POST",
+            "auth": true,
+            "docs": "Register bundle CID on the mod protocol on-chain registry (owner-only)"
+        }
+    },
+    "urls": {
+        "api": "http://localhost:8870",
+        "app": "http://localhost:8871"
+    },
+    "bundled_at": 1779310362,
+    "bundle_modules": {
+        "dev": "QmWcZK8hdrLr7jKnoRbCLn2ES55ipaP9ePptJadDsy4xQG",
+        "claude": "QmZaCj1HVr3EKKGmvNTNehUHexusMG24nhNLHPM5oz56eV",
+        "codex": "QmVUdvHtVk7wT5dcWV4Smqk9utYx4WewoayVpBQjeVBEww"
+    },
+    "gateway_port": 8871
+}

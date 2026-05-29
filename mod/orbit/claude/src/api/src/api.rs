@@ -2,6 +2,9 @@
 
 use crate::auth;
 use crate::jobs::{ClaudeJobManager, SubmitRequest};
+use crate::snapshots::{
+    append_version, default_store, read_versions, restore_into, snapshot_dir, VersionRecord,
+};
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -44,8 +47,13 @@ pub async fn serve(manager: AppState, port: u16) {
             .route("/jobs/:id/stream", get(stream_job))
             .route("/modules/:name", delete(delete_module))
             .route("/modules/:name/rename", put(rename_module))
+            .route("/modules/:name/snapshot", post(snapshot_module))
+            .route("/modules/:name/fork", post(fork_module))
+            .route("/modules/:name/restore", post(restore_module))
             .route("/files/write", post(file_write))
-            .route("/kill", post(kill_process));
+            .route("/kill", post(kill_process))
+            .route("/whitelist", post(add_to_whitelist))
+            .route("/whitelist/:address", delete(remove_from_whitelist));
 
         if local_mode {
             println!("⚡ Local mode — auth disabled");
@@ -63,6 +71,8 @@ pub async fn serve(manager: AppState, port: u16) {
         .route("/repos", get(list_repos))
         .route("/modules", get(list_modules))
         .route("/modules/:name/config", get(get_module_config))
+        .route("/folders", get(list_folders))
+        .route("/suggest_folders", get(suggest_folders))
         .route("/files/tree", get(file_tree))
         .route("/files/content", get(file_content))
         .route("/files/raw", get(file_raw))
@@ -70,7 +80,10 @@ pub async fn serve(manager: AppState, port: u16) {
         .route("/files/grep", get(file_grep))
         .route("/changelog", get(get_changelog))
         .route("/versions/:version", get(get_version))
+        .route("/modules/:name/versions", get(list_module_versions))
+        .route("/modules/:name/registry", get(module_registry))
         .route("/owner", get(get_owner))
+        .route("/whitelist", get(get_whitelist))
         .route("/auth/role", get(get_role))
         .route(
             "/auth/challenge",
@@ -86,7 +99,11 @@ pub async fn serve(manager: AppState, port: u16) {
         .merge(public_routes)
         .layer(cors);
 
-    let addr = format!("0.0.0.0:{}", port);
+    // Bind host defaults to all interfaces (needed inside Docker so the Caddy
+    // gateway in a sibling container can reach it). For host-only single-port
+    // exposure, set BIND_HOST=127.0.0.1 so only the local Caddy can reach it.
+    let host = std::env::var("BIND_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+    let addr = format!("{}:{}", host, port);
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .expect("Failed to bind");
@@ -246,6 +263,68 @@ struct RoleQuery {
     address: String,
 }
 
+async fn get_whitelist() -> impl IntoResponse {
+    Json(json!({ "whitelist": auth::read_whitelist() }))
+}
+
+#[derive(Deserialize)]
+struct WhitelistAddRequest {
+    address: String,
+}
+
+fn require_owner(headers: &axum::http::HeaderMap) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    let caller = auth::extract_address_from_headers(headers).map_err(|e| (
+        StatusCode::UNAUTHORIZED,
+        Json(json!({ "error": e })),
+    ))?;
+    if !auth::is_owner(&caller) {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(json!({ "error": "Owner-only: whitelist edits require the configured owner" })),
+        ));
+    }
+    Ok(())
+}
+
+async fn add_to_whitelist(
+    headers: axum::http::HeaderMap,
+    Json(req): Json<WhitelistAddRequest>,
+) -> impl IntoResponse {
+    if let Err(e) = require_owner(&headers) { return e.into_response(); }
+    let addr = req.address.trim().to_lowercase();
+    if !addr.starts_with("0x") || addr.len() != 42 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "address must be a 0x-prefixed 40-hex string" })),
+        ).into_response();
+    }
+    let mut list = auth::read_whitelist();
+    if !list.contains(&addr) {
+        list.push(addr.clone());
+        if let Err(e) = auth::write_whitelist(&list) {
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e }))).into_response();
+        }
+    }
+    (StatusCode::OK, Json(json!({ "whitelist": list, "added": addr }))).into_response()
+}
+
+async fn remove_from_whitelist(
+    headers: axum::http::HeaderMap,
+    Path(address): Path<String>,
+) -> impl IntoResponse {
+    if let Err(e) = require_owner(&headers) { return e.into_response(); }
+    let target = address.trim().to_lowercase();
+    let before = auth::read_whitelist();
+    let after: Vec<String> = before.iter().filter(|a| *a != &target).cloned().collect();
+    if after.len() == before.len() {
+        return (StatusCode::NOT_FOUND, Json(json!({ "error": "address not in whitelist" }))).into_response();
+    }
+    if let Err(e) = auth::write_whitelist(&after) {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e }))).into_response();
+    }
+    (StatusCode::OK, Json(json!({ "whitelist": after, "removed": target }))).into_response()
+}
+
 async fn submit_job(
     headers: axum::http::HeaderMap,
     State(mgr): State<AppState>,
@@ -273,18 +352,18 @@ async fn submit_job(
         }
     };
 
-    // Permission check: owner can edit anything, non-owners can only edit _outer/{their_address}/ modules
+    // Permission check: owner can edit anything, non-owners can only edit portal/{their_address}/ modules
     if !user_address.is_empty() && !auth::is_owner(&user_address) {
-        // Check work_dir — non-owners must work within _outer/{their_address}/
+        // Check work_dir — non-owners must work within portal/{their_address}/
         if let Some(ref work_dir) = req.work_dir {
             let normalized = work_dir.to_lowercase();
-            let user_outer = format!("_outer/{}", user_address.to_lowercase());
-            if !normalized.contains(&user_outer) {
+            let user_portal = format!("portal/{}", user_address.to_lowercase());
+            if !normalized.contains(&user_portal) {
                 return (
                     StatusCode::FORBIDDEN,
                     Json(json!({
                         "error": format!(
-                            "Permission denied: non-owners can only edit modules in _outer/{}/",
+                            "Permission denied: non-owners can only edit modules in portal/{}/",
                             user_address
                         )
                     })),
@@ -293,28 +372,28 @@ async fn submit_job(
             }
         }
 
-        // Check module_name — non-owners must target _outer/{their_address}/ modules
+        // Check module_name — non-owners must target portal/{their_address}/ modules
         if let Some(ref module_name) = req.module_name {
             let normalized = module_name.to_lowercase();
-            let user_prefix = format!("_outer/{}", user_address.to_lowercase());
-            if !normalized.starts_with(&user_prefix) && !normalized.starts_with("_outer/") {
+            let user_prefix = format!("portal/{}", user_address.to_lowercase());
+            if !normalized.starts_with(&user_prefix) && !normalized.starts_with("portal/") {
                 return (
                     StatusCode::FORBIDDEN,
                     Json(json!({
                         "error": format!(
-                            "Permission denied: non-owners can only create/edit modules under _outer/{}/",
+                            "Permission denied: non-owners can only create/edit modules under portal/{}/",
                             user_address
                         )
                     })),
                 )
                     .into_response();
             }
-            // If it starts with _outer/ but not their address, also block
-            if normalized.starts_with("_outer/") && !normalized.starts_with(&user_prefix) {
+            // If it starts with portal/ but not their address, also block
+            if normalized.starts_with("portal/") && !normalized.starts_with(&user_prefix) {
                 return (
                     StatusCode::FORBIDDEN,
                     Json(json!({
-                        "error": "Permission denied: you can only edit your own modules in _outer/"
+                        "error": "Permission denied: you can only edit your own modules in portal/"
                     })),
                 )
                     .into_response();
@@ -754,6 +833,169 @@ async fn list_modules(Query(params): Query<ModuleQuery>) -> impl IntoResponse {
     });
 
     Json(json!({ "modules": modules, "count": modules.len(), "anchor": anchor.replacen(&home, "~", 1) }))
+}
+
+#[derive(Deserialize)]
+struct FolderQuery {
+    q: Option<String>,
+    path: Option<String>,
+    depth: Option<usize>,
+}
+
+/// List folders under a path, with optional search filter
+async fn list_folders(Query(params): Query<FolderQuery>) -> impl IntoResponse {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let raw_path = params.path.unwrap_or_else(|| "~/mod".to_string());
+    let resolved = raw_path.replacen("~", &home, 1);
+    let max_depth = params.depth.unwrap_or(2);
+    let query = params.q.unwrap_or_default().to_lowercase();
+
+    let root = std::path::Path::new(&resolved);
+    if !root.is_dir() {
+        return Json(json!({ "folders": [], "error": "Directory not found" }));
+    }
+
+    fn walk_folders(
+        dir: &std::path::Path,
+        base: &std::path::Path,
+        depth: usize,
+        max_depth: usize,
+        query: &str,
+        home: &str,
+        results: &mut Vec<serde_json::Value>,
+    ) {
+        if depth > max_depth { return; }
+        let Ok(rd) = std::fs::read_dir(dir) else { return };
+        for entry in rd.flatten() {
+            let path = entry.path();
+            if !path.is_dir() { continue; }
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') || name == "node_modules" || name == "__pycache__"
+                || name == "target" || name == "build" || name == "dist"
+                || name == ".next" || name == "venv" || name == ".venv" { continue; }
+            let full = path.to_string_lossy().to_string();
+            let rel = path.strip_prefix(base).unwrap_or(&path).to_string_lossy().to_string();
+            if !query.is_empty() && !rel.to_lowercase().contains(query) {
+                // still recurse — subfolders might match
+                walk_folders(&path, base, depth + 1, max_depth, query, home, results);
+                continue;
+            }
+            let has_config = path.join("config.json").exists();
+            let has_mod = path.join("mod.py").exists();
+            let display = full.replacen(home, "~", 1);
+            results.push(json!({
+                "name": rel,
+                "path": full,
+                "display": display,
+                "has_config": has_config,
+                "has_mod": has_mod,
+            }));
+            walk_folders(&path, base, depth + 1, max_depth, query, home, results);
+        }
+    }
+
+    let mut results = Vec::new();
+    walk_folders(root, root, 0, max_depth, &query, &home, &mut results);
+    results.sort_by(|a, b| {
+        let a_name = a["name"].as_str().unwrap_or("");
+        let b_name = b["name"].as_str().unwrap_or("");
+        a_name.cmp(b_name)
+    });
+
+    Json(json!({ "folders": results, "count": results.len(), "path": raw_path }))
+}
+
+#[derive(Deserialize)]
+struct SuggestQuery {
+    query: String,
+    path: Option<String>,
+    top_k: Option<usize>,
+    embedcode_url: Option<String>,
+}
+
+/// Suggest folders using embedcode similarity search
+async fn suggest_folders(Query(params): Query<SuggestQuery>) -> impl IntoResponse {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let raw_path = params.path.unwrap_or_else(|| "~/mod".to_string());
+    let resolved = raw_path.replacen("~", &home, 1);
+    let top_k = params.top_k.unwrap_or(10);
+    let ec_url = params.embedcode_url.unwrap_or_else(|| "http://localhost:8920".to_string());
+
+    // Call embedcode search API
+    let client = reqwest::Client::new();
+    let search_resp = client
+        .post(format!("{}/search", ec_url))
+        .json(&json!({
+            "query": params.query,
+            "path": resolved,
+            "top_k": top_k * 5,
+        }))
+        .send()
+        .await;
+
+    let results = match search_resp {
+        Ok(resp) => {
+            match resp.json::<Vec<serde_json::Value>>().await {
+                Ok(items) => items,
+                Err(_) => return Json(json!({ "suggestions": [], "error": "Failed to parse embedcode response" })),
+            }
+        }
+        Err(e) => {
+            return Json(json!({ "suggestions": [], "error": format!("Embedcode not reachable at {}: {}", ec_url, e) }));
+        }
+    };
+
+    // Group by folder, keep best score per folder
+    let mut folder_scores: std::collections::HashMap<String, serde_json::Value> = std::collections::HashMap::new();
+    let base = std::path::Path::new(&resolved);
+
+    for item in &results {
+        let file_path = item.get("path").and_then(|v| v.as_str()).unwrap_or("");
+        let score = item.get("score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let preview = item.get("preview").and_then(|v| v.as_str()).unwrap_or("");
+
+        let folder = std::path::Path::new(file_path)
+            .parent()
+            .unwrap_or(std::path::Path::new(""))
+            .to_string_lossy()
+            .to_string();
+        let rel = std::path::Path::new(&folder)
+            .strip_prefix(base)
+            .unwrap_or(std::path::Path::new(&folder))
+            .to_string_lossy()
+            .to_string();
+
+        let existing_score = folder_scores
+            .get(&rel)
+            .and_then(|v| v.get("score"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+
+        if score > existing_score {
+            let display = folder.replacen(&home, "~", 1);
+            let has_config = std::path::Path::new(&folder).join("config.json").exists();
+            let has_mod = std::path::Path::new(&folder).join("mod.py").exists();
+            folder_scores.insert(rel.clone(), json!({
+                "name": rel,
+                "path": folder,
+                "display": display,
+                "score": score,
+                "preview": &preview[..preview.len().min(120)],
+                "has_config": has_config,
+                "has_mod": has_mod,
+            }));
+        }
+    }
+
+    let mut suggestions: Vec<serde_json::Value> = folder_scores.into_values().collect();
+    suggestions.sort_by(|a, b| {
+        let a_score = a.get("score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let b_score = b.get("score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        b_score.partial_cmp(&a_score).unwrap_or(std::cmp::Ordering::Equal)
+    });
+    suggestions.truncate(top_k);
+
+    Json(json!({ "suggestions": suggestions, "count": suggestions.len() }))
 }
 
 /// Return raw config.json for a specific module
@@ -1364,15 +1606,17 @@ struct WriteBody {
     content: String,
 }
 
-async fn file_write(Json(body): Json<WriteBody>) -> impl IntoResponse {
+async fn file_write(
+    headers: axum::http::HeaderMap,
+    Json(body): Json<WriteBody>,
+) -> impl IntoResponse {
+    if let Err(e) = require_owner(&headers) { return e.into_response(); }
     let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
     let resolved = body.path.replacen("~", &home, 1);
     let file_path = std::path::Path::new(&resolved);
 
-    // Safety: only allow writes within ~/mod/
     let mod_dir = format!("{}/mod", home);
     let canonical_mod = std::fs::canonicalize(&mod_dir).unwrap_or_else(|_| std::path::PathBuf::from(&mod_dir));
-    // Resolve parent to check containment (file may not exist yet)
     let parent = file_path.parent().unwrap_or(file_path);
     let canonical_parent = std::fs::canonicalize(parent).unwrap_or_else(|_| parent.to_path_buf());
     if !canonical_parent.starts_with(&canonical_mod) {
@@ -1381,6 +1625,21 @@ async fn file_write(Json(body): Json<WriteBody>) -> impl IntoResponse {
             Json(json!({ "error": "Writes only allowed within ~/mod/" })),
         )
             .into_response();
+    }
+
+    let rel = canonical_parent
+        .strip_prefix(&canonical_mod)
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let first = rel.split('/').next().unwrap_or("");
+    if matches!(first, "core" | "orbit") {
+        let caller = auth::extract_address_from_headers(&headers).unwrap_or_default();
+        if !auth::is_owner(&caller) {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({ "error": "Owner-only: core/ and orbit/ writes require the configured owner" })),
+            ).into_response();
+        }
     }
 
     // Create parent dirs if needed
@@ -1523,4 +1782,415 @@ fn find_pids_by_port(port: u16) -> Result<Vec<u32>, String> {
         .filter_map(|line| line.trim().parse::<u32>().ok())
         .collect();
     Ok(pids)
+}
+
+// ── Snapshots / Versions / Fork / Restore ────────────────────────────
+//
+// Content-addressed via the Store enum (default: LocalFs). Any future backend
+// (ipfs/bitstore/dstore) is a one-line variant + match arm; nothing else moves.
+// Versions log lives at ~/.mod/claude/versions/{module}.json — append-only.
+//
+// Each change is also pushed to the mod-protocol api module (FastAPI on :8000)
+// via /api/reg — that gives us a git-like linked list of registry CIDs (each
+// entry has a `prev` pointer to the previous one). Rollback = restoring an old
+// localfs CID then re-registering it so the api module's "latest" pointer
+// moves backwards along the chain.
+
+const API_MODULE_URL: &str = "http://host.docker.internal:8000";
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct ApiRegResult {
+    cid: Option<String>,
+    prev: Option<String>,
+    #[allow(dead_code)]
+    key: Option<String>,
+    #[allow(dead_code)]
+    name: Option<String>,
+    #[allow(dead_code)]
+    updated: Option<f64>,
+}
+
+/// Push a change through the mod-protocol api module. `comment` distinguishes
+/// snapshots, restores, forks etc. — useful when browsing registry history.
+/// 30s timeout: api/reg locally takes ~15-20s for non-cached snapshots.
+async fn mod_protocol_register(
+    module: &str,
+    comment: &str,
+) -> Result<ApiRegResult, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("http client: {e}"))?;
+    let resp = client
+        .post(format!("{API_MODULE_URL}/api/reg"))
+        .json(&serde_json::json!({ "mod": module, "comment": comment }))
+        .send()
+        .await
+        .map_err(|e| format!("api/reg POST failed: {e}"))?;
+    let body: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("api/reg parse: {e}"))?;
+    if let Some(err) = body.get("error").and_then(|v| v.as_str()) {
+        return Err(format!("api/reg error: {err}"));
+    }
+    let result = body
+        .get("result")
+        .ok_or_else(|| "api/reg missing 'result'".to_string())?;
+    serde_json::from_value::<ApiRegResult>(result.clone())
+        .map_err(|e| format!("api/reg shape: {e}"))
+}
+
+fn module_root_for(name: &str) -> Option<std::path::PathBuf> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let candidates = [
+        format!("{home}/mod/mod/orbit/{name}"),
+        format!("{home}/mod/mod/core/{name}"),
+    ];
+    for c in &candidates {
+        let p = std::path::PathBuf::from(c);
+        if p.is_dir() {
+            return Some(p);
+        }
+    }
+    None
+}
+
+#[derive(Deserialize)]
+struct SnapshotBody {
+    #[serde(default)]
+    message: String,
+}
+
+async fn snapshot_module(
+    headers: axum::http::HeaderMap,
+    Path(name): Path<String>,
+    Json(body): Json<SnapshotBody>,
+) -> impl IntoResponse {
+    let caller = auth::extract_address_from_headers(&headers).unwrap_or_default();
+    let local_mode = std::env::var("CLAUDE_JOBS_LOCAL").unwrap_or_default() == "1";
+    if caller.is_empty() && !local_mode {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "error": "auth required" })),
+        )
+            .into_response();
+    }
+    let Some(root) = module_root_for(&name) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": format!("module '{name}' not found") })),
+        )
+            .into_response();
+    };
+    let store = default_store();
+    let (cid, manifest) = match snapshot_dir(&root, &store) {
+        Ok(t) => t,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": e })),
+            )
+                .into_response();
+        }
+    };
+    let history = read_versions(&name);
+    let parent = history.last().map(|v| v.cid.clone());
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+
+    // Push through the mod-protocol api module so this change is also a node
+    // in the global registry chain. Failure non-fatal — local snapshot still
+    // succeeds even if api is down; UI flags it.
+    let reg_comment = if body.message.is_empty() {
+        format!("snapshot: cid={}", &cid[..16])
+    } else {
+        format!("snapshot: {}", body.message)
+    };
+    let (registry_cid, registry_prev, registry_err) =
+        match mod_protocol_register(&name, &reg_comment).await {
+            Ok(r) => (r.cid, r.prev, None),
+            Err(e) => (None, None, Some(e)),
+        };
+
+    let record = VersionRecord {
+        cid: cid.clone(),
+        message: body.message.clone(),
+        author: caller.clone(),
+        timestamp: ts,
+        parent: parent.clone(),
+        registry_cid: registry_cid.clone(),
+        registry_prev: registry_prev.clone(),
+        action: Some("snapshot".to_string()),
+    };
+    if let Err(e) = append_version(&name, record) {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": e })),
+        )
+            .into_response();
+    }
+    (
+        StatusCode::CREATED,
+        Json(json!({
+            "ok": true,
+            "module": name,
+            "cid": cid,
+            "store": store.name(),
+            "file_count": manifest.files.len(),
+            "parent": parent,
+            "author": caller,
+            "registry_cid": registry_cid,
+            "registry_prev": registry_prev,
+            "registry_error": registry_err,
+        })),
+    )
+        .into_response()
+}
+
+async fn list_module_versions(Path(name): Path<String>) -> impl IntoResponse {
+    let history = read_versions(&name);
+    Json(json!({
+        "module": name,
+        "count": history.len(),
+        "versions": history,
+    }))
+}
+
+/// Fetch the global mod-protocol api registry entry for a module so the UI
+/// can show "the registry currently points at CID X" next to the local log.
+async fn module_registry(Path(name): Path<String>) -> impl IntoResponse {
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": format!("http client: {e}") })),
+            )
+                .into_response();
+        }
+    };
+    let resp = client
+        .post(format!("{API_MODULE_URL}/api/mod"))
+        .json(&json!({ "key": name }))
+        .send()
+        .await;
+    match resp {
+        Ok(r) => match r.json::<serde_json::Value>().await {
+            Ok(body) => (StatusCode::OK, Json(body)).into_response(),
+            Err(e) => (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({ "error": format!("parse api/mod: {e}") })),
+            )
+                .into_response(),
+        },
+        Err(e) => (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({
+                "error": format!("api module unreachable at {API_MODULE_URL}: {e}"),
+                "hint": "is `m api/serve` running on port 8000?"
+            })),
+        )
+            .into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+struct ForkBody {
+    cid: String,
+    #[serde(default)]
+    target_name: Option<String>,
+}
+
+async fn fork_module(
+    headers: axum::http::HeaderMap,
+    Path(name): Path<String>,
+    Json(body): Json<ForkBody>,
+) -> impl IntoResponse {
+    let caller = auth::extract_address_from_headers(&headers).unwrap_or_default();
+    let local_mode = std::env::var("CLAUDE_JOBS_LOCAL").unwrap_or_default() == "1";
+    if caller.is_empty() && !local_mode {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "error": "auth required to fork" })),
+        )
+            .into_response();
+    }
+    let owner_for_path = if caller.is_empty() {
+        "local".to_string()
+    } else {
+        caller.to_lowercase()
+    };
+    let target_name = body.target_name.unwrap_or_else(|| name.clone());
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let target = std::path::PathBuf::from(format!(
+        "{home}/mod/mod/orbit/portal/{owner_for_path}/{target_name}"
+    ));
+    if target.exists() {
+        return (
+            StatusCode::CONFLICT,
+            Json(json!({
+                "error": format!("fork target already exists: {}", target.display())
+            })),
+        )
+            .into_response();
+    }
+    let store = default_store();
+    let written = match restore_into(&target, &body.cid, &store) {
+        Ok(n) => n,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": e })),
+            )
+                .into_response();
+        }
+    };
+    // Seed a fork version record so the new module starts with history
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let target_module = format!("portal/{owner_for_path}/{target_name}");
+    let fork_msg = format!("forked from {name}@{}", &body.cid[..16]);
+    let (registry_cid, registry_prev, registry_err) =
+        match mod_protocol_register(&target_module, &fork_msg).await {
+            Ok(r) => (r.cid, r.prev, None),
+            Err(e) => (None, None, Some(e)),
+        };
+    let fork_record = VersionRecord {
+        cid: body.cid.clone(),
+        message: fork_msg,
+        author: caller.clone(),
+        timestamp: ts,
+        parent: None,
+        registry_cid: registry_cid.clone(),
+        registry_prev: registry_prev.clone(),
+        action: Some("fork".to_string()),
+    };
+    let _ = append_version(&target_module, fork_record);
+    (
+        StatusCode::CREATED,
+        Json(json!({
+            "ok": true,
+            "from_module": name,
+            "from_cid": body.cid,
+            "target_module": target_module,
+            "target_path": target.display().to_string(),
+            "file_count": written,
+            "store": store.name(),
+            "registry_cid": registry_cid,
+            "registry_prev": registry_prev,
+            "registry_error": registry_err,
+        })),
+    )
+        .into_response()
+}
+
+#[derive(Deserialize)]
+struct RestoreBody {
+    cid: String,
+}
+
+async fn restore_module(
+    headers: axum::http::HeaderMap,
+    Path(name): Path<String>,
+    Json(body): Json<RestoreBody>,
+) -> impl IntoResponse {
+    let caller = auth::extract_address_from_headers(&headers).unwrap_or_default();
+    let local_mode = std::env::var("CLAUDE_JOBS_LOCAL").unwrap_or_default() == "1";
+    if caller.is_empty() && !local_mode {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "error": "auth required to restore" })),
+        )
+            .into_response();
+    }
+    let Some(root) = module_root_for(&name) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": format!("module '{name}' not found") })),
+        )
+            .into_response();
+    };
+    // Auto-snapshot current state first so the rollback is itself reversible.
+    let store = default_store();
+    if let Ok((auto_cid, _)) = snapshot_dir(&root, &store) {
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let auto_msg = format!("auto-snapshot before rollback to {}", &body.cid[..16]);
+        let (rcid, rprev, _) = match mod_protocol_register(&name, &auto_msg).await {
+            Ok(r) => (r.cid, r.prev, None),
+            Err(e) => (None, None, Some(e)),
+        };
+        let _ = append_version(
+            &name,
+            VersionRecord {
+                cid: auto_cid,
+                message: auto_msg,
+                author: caller.clone(),
+                timestamp: ts,
+                parent: None,
+                registry_cid: rcid,
+                registry_prev: rprev,
+                action: Some("auto-snapshot".to_string()),
+            },
+        );
+    }
+    let written = match restore_into(&root, &body.cid, &store) {
+        Ok(n) => n,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": e })),
+            )
+                .into_response();
+        }
+    };
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    // Re-register through the api module so the global registry's "latest"
+    // pointer moves backwards along the chain to reflect the rollback.
+    let restore_msg = format!("rollback to {}", &body.cid[..16]);
+    let (registry_cid, registry_prev, registry_err) =
+        match mod_protocol_register(&name, &restore_msg).await {
+            Ok(r) => (r.cid, r.prev, None),
+            Err(e) => (None, None, Some(e)),
+        };
+    let _ = append_version(
+        &name,
+        VersionRecord {
+            cid: body.cid.clone(),
+            message: restore_msg,
+            author: caller.clone(),
+            timestamp: ts,
+            parent: None,
+            registry_cid: registry_cid.clone(),
+            registry_prev: registry_prev.clone(),
+            action: Some("restore".to_string()),
+        },
+    );
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "module": name,
+            "restored_to": body.cid,
+            "file_count": written,
+            "store": store.name(),
+            "registry_cid": registry_cid,
+            "registry_prev": registry_prev,
+            "registry_error": registry_err,
+        })),
+    )
+        .into_response()
 }

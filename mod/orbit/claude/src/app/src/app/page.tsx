@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
+import { VersionsPanel } from "../components/VersionsPanel";
 
 const WalletModal = dynamic(() => import("../components/WalletModal"), { ssr: false });
 
@@ -12,7 +13,9 @@ import {
   switchNetwork,
 } from "../utils/wallet";
 
-const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8820";
+const DEFAULT_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || "/claude";
+const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL || `/api${DEFAULT_BASE_PATH}`;
+const API_PORT = parseInt(process.env.NEXT_PUBLIC_API_PORT || "8820", 10);
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -57,6 +60,27 @@ interface Personality {
   prompt: string;
   builtin?: boolean;
 }
+
+// ── Routy Types ──────────────────────────────────────────────────────
+
+interface RoutyWebsite {
+  name: string;
+  target_url: string;
+  description: string | null;
+  storage_type: string | null;
+  cid: string | null;
+  created_at: number;
+}
+
+interface RoutyStats {
+  cpu_usage_percent: number;
+  apps: number;
+  apis: number;
+  total: number;
+  max_websites: number;
+}
+
+const ROUTY_API = "http://localhost:3000";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -203,6 +227,10 @@ export default function Home() {
   const [togglingModule, setTogglingModule] = useState(false);
   const [togglingApi, setTogglingApi] = useState(false);
   const [togglingApp, setTogglingApp] = useState(false);
+  const [moduleLogs, setModuleLogs] = useState<Record<string, string>>({});
+  const [moduleLogsOpen, setModuleLogsOpen] = useState<"api" | "app" | null>(null);
+  const [moduleLogsLoading, setModuleLogsLoading] = useState(false);
+  const [moduleLogsAutoRefresh, setModuleLogsAutoRefresh] = useState(false);
   const [expandedAsks, setExpandedAsks] = useState<Set<string>>(new Set());
   const [expandedPrompts, setExpandedPrompts] = useState<Set<string>>(new Set());
   const [expandedJobImage, setExpandedJobImage] = useState<string | null>(null);
@@ -212,6 +240,7 @@ export default function Home() {
   const [theme, setTheme] = useState<"dark" | "light" | "matrix" | "cyberpunk" | "amber" | "ocean" | "ibm" | "win95">("dark");
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [showUserDetails, setShowUserDetails] = useState(false);
+  const [showVersions, setShowVersions] = useState(false);
 
   // File viewer state
   const [viewingFile, setViewingFile] = useState<string | null>(null);
@@ -271,6 +300,15 @@ export default function Home() {
   const [apiLoading, setApiLoading] = useState(false);
   const [apiMethod, setApiMethod] = useState<string>("GET");
 
+  // Routy gateway state
+  const [routyApps, setRoutyApps] = useState<RoutyWebsite[]>([]);
+  const [routyApis, setRoutyApis] = useState<RoutyWebsite[]>([]);
+  const [routyStats, setRoutyStats] = useState<RoutyStats | null>(null);
+  const [routyConnected, setRoutyConnected] = useState(false);
+  const [routySyncing, setRoutySyncing] = useState(false);
+  const [routySearch, setRoutySearch] = useState("");
+  const [routyTab, setRoutyTab] = useState<"all" | "apps" | "apis">("all");
+
   // Direct config from /config endpoint (fallback)
   const [directConfig, setDirectConfig] = useState<any>(null);
 
@@ -324,6 +362,14 @@ export default function Home() {
   const [showHeaderModuleDropdown, setShowHeaderModuleDropdown] = useState(false);
   const [headerModuleSearch, setHeaderModuleSearch] = useState("");
   const [ownerFilter, setOwnerFilter] = useState<string | null>(null);
+  const [folderSuggestions, setFolderSuggestions] = useState<Array<{
+    name: string; path: string; display: string; score: number; preview: string;
+    has_config: boolean; has_mod: boolean;
+  }>>([]);
+  const [folderList, setFolderList] = useState<Array<{
+    name: string; path: string; display: string; has_config: boolean; has_mod: boolean;
+  }>>([]);
+  const [selectorMode, setSelectorMode] = useState<"modules" | "folders">("modules");
   const [showHeaderCreateForm, setShowHeaderCreateForm] = useState<"create" | "fork" | null>(null);
   const [headerNewName, setHeaderNewName] = useState("");
   const [headerGithubUrl, setHeaderGithubUrl] = useState("");
@@ -472,6 +518,70 @@ export default function Home() {
     ];
     return () => timers.forEach(clearTimeout);
   }, []);
+
+  // Gateway probe: caddy on :3000 already proxies /claude (app) AND /api/claude
+  // (api). Try routy's native API first for the rich service list, fall back
+  // to a same-origin HEAD on /claude — if anything answers, the gateway is up.
+  const refreshRouty = useCallback(async () => {
+    try {
+      const [ws, st] = await Promise.all([
+        fetch(`${ROUTY_API}/_api/websites`).then(r => r.json()),
+        fetch(`${ROUTY_API}/_api/stats`).then(r => r.json()),
+      ]);
+      setRoutyApps(ws.apps || []);
+      setRoutyApis(ws.apis || []);
+      setRoutyStats(st);
+      setRoutyConnected(true);
+      return;
+    } catch {
+      // Routy not running — but caddy may still be proxying. Probe with a
+      // same-origin HEAD; if /claude is reachable, the gateway is up.
+      try {
+        const r = await fetch(`${ROUTY_API}/claude`, { method: "GET", redirect: "manual" });
+        if (r.status > 0 && r.status < 500) {
+          setRoutyApps([]);
+          setRoutyApis([]);
+          setRoutyStats({ apps: 0, apis: 0, total_requests: 0 } as any);
+          setRoutyConnected(true);
+          return;
+        }
+      } catch {}
+      setRoutyConnected(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshRouty();
+    const id = setInterval(refreshRouty, 5000);
+    return () => clearInterval(id);
+  }, [refreshRouty]);
+
+  const syncRouty = async () => {
+    setRoutySyncing(true);
+    try {
+      await fetch(`${ROUTY_API}/_api/sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      await new Promise(r => setTimeout(r, 400));
+      await refreshRouty();
+    } catch {}
+    setRoutySyncing(false);
+  };
+
+  const routyFiltered = (() => {
+    const q = routySearch.toLowerCase();
+    const filterFn = (w: RoutyWebsite) =>
+      w.name.toLowerCase().includes(q) ||
+      (w.description?.toLowerCase().includes(q) ?? false) ||
+      w.target_url.toLowerCase().includes(q);
+    const taggedApps = routyApps.filter(filterFn).map(w => ({ ...w, _type: "app" as const }));
+    const taggedApis = routyApis.filter(filterFn).map(w => ({ ...w, _type: "api" as const }));
+    if (routyTab === "apps") return taggedApps;
+    if (routyTab === "apis") return taggedApis;
+    return [...taggedApps, ...taggedApis];
+  })();
 
   // Apply theme to document root
   useEffect(() => {
@@ -973,7 +1083,7 @@ export default function Home() {
         body: JSON.stringify({
           action: "start",
           type: "api",
-          port: parseInt(apiUrl.split(":").pop() || "8820"),
+          port: API_PORT,
           workDir: `${anchorDir.replace("~", process.env.HOME || "/Users/broski")}/mod/orbit/claude/api`,
         }),
       });
@@ -986,7 +1096,7 @@ export default function Home() {
 
   const stopApiServer = useCallback(async () => {
     try {
-      const port = parseInt(apiUrl.split(":").pop() || "8820");
+      const port = API_PORT;
       await fetch("/api/service", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1012,7 +1122,7 @@ export default function Home() {
         body: JSON.stringify({
           action: "start",
           type: "api",
-          port: parseInt(apiUrl.split(":").pop() || "8820"),
+          port: API_PORT,
           workDir: apiDir,
         }),
       });
@@ -1889,6 +1999,39 @@ export default function Home() {
     } catch { /* ignore */ }
   }, [anchorDir, apiUrl]);
 
+  const fetchFolders = useCallback(async (q: string = "", path?: string) => {
+    try {
+      const params = new URLSearchParams();
+      if (q) params.set("q", q);
+      if (path) params.set("path", path);
+      params.set("depth", "3");
+      const res = await fetch(`${apiUrl}/folders?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setFolderList(data.folders || []);
+      }
+    } catch { /* ignore */ }
+  }, [apiUrl]);
+
+  const suggestFolderDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fetchFolderSuggestions = useCallback(async (query: string, path?: string) => {
+    if (!query.trim()) { setFolderSuggestions([]); return; }
+    if (suggestFolderDebounceRef.current) clearTimeout(suggestFolderDebounceRef.current);
+    suggestFolderDebounceRef.current = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams();
+        params.set("query", query);
+        if (path) params.set("path", path);
+        params.set("top_k", "8");
+        const res = await fetch(`${apiUrl}/suggest_folders?${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          setFolderSuggestions(data.suggestions || []);
+        }
+      } catch { /* ignore */ }
+    }, 300);
+  }, [apiUrl]);
+
   const fetchModuleConfig = useCallback(async (name: string) => {
     setLoadingConfig(true);
     setModuleConfig(null);
@@ -2056,6 +2199,44 @@ export default function Home() {
     setToggling(false);
     await startProcess(target);
   }, [getPortForTarget, authFetch, startProcess]);
+
+  // Fetch module logs (API and App)
+  const fetchModuleLogs = useCallback(async () => {
+    if (!selectedModule || !token) return;
+    setModuleLogsLoading(true);
+    try {
+      const res = await authFetch("/forward", {
+        method: "POST",
+        body: JSON.stringify({ fn: "app_logs", name: selectedModule, lines: 200 }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && typeof data === "object" && !data.error) {
+          setModuleLogs(typeof data === "string" ? { stdout: data } : data);
+        }
+      }
+    } catch { /* ignore */ }
+    setModuleLogsLoading(false);
+  }, [selectedModule, token, authFetch]);
+
+  // Auto-refresh logs
+  useEffect(() => {
+    if (!moduleLogsAutoRefresh || !moduleLogsOpen) return;
+    const iv = setInterval(fetchModuleLogs, 4000);
+    return () => clearInterval(iv);
+  }, [moduleLogsAutoRefresh, moduleLogsOpen, fetchModuleLogs]);
+
+  // Fetch logs when opened
+  useEffect(() => {
+    if (moduleLogsOpen) fetchModuleLogs();
+  }, [moduleLogsOpen]);
+
+  // Reset logs when switching modules
+  useEffect(() => {
+    setModuleLogs({});
+    setModuleLogsOpen(null);
+    setModuleLogsAutoRefresh(false);
+  }, [selectedModule]);
 
   // Legacy toggle (used by old single button, kept for compat)
   const toggleModule = useCallback(async () => {
@@ -3457,6 +3638,22 @@ export default function Home() {
                   </button>
                 </div>
 
+                {/* Active module indicator */}
+                {selectedModule && (
+                  <span
+                    className="px-2 py-1 text-[12px] font-pixel uppercase tracking-wide border rounded"
+                    style={{
+                      color: "#fbbf24",
+                      borderColor: "rgba(251,191,36,0.35)",
+                      background: "rgba(251,191,36,0.08)",
+                      letterSpacing: "0.04em",
+                    }}
+                    title={`Module: ${selectedModule}`}
+                  >
+                    {selectedModule}
+                  </span>
+                )}
+
                 {/* Mode selector: edit/ fork/ new/ */}
                 <div className="flex items-center border rounded overflow-hidden" style={{ borderColor: "rgba(251,191,36,0.25)" }}>
                   {(["edit", "fork", "new"] as const).map((md) => (
@@ -3957,235 +4154,339 @@ export default function Home() {
       return matchesSearch && matchesStatus && matchesModule;
     });
 
+    const runningCount = filteredJobs.filter(j => j.status === "running").length;
+    const isRunning = selectedJobData?.status === "running";
+    const output = streamOutput || selectedJobData?.output || "";
+    const MODEL_CHIPS = [
+      { value: "opus", label: "Opus", color: "#a78bfa" },
+      { value: "sonnet", label: "Sonnet", color: "#60a5fa" },
+      { value: "haiku", label: "Haiku", color: "#34d399" },
+    ];
+    const activeModelChip = MODEL_CHIPS.find(m => m.value === model) || MODEL_CHIPS[0];
+
     return (
       <div className="flex-1 flex flex-col overflow-hidden" style={{ background: "var(--bg-primary)" }}>
-        {/* Top: Input Area */}
-        <div className="border-b flex flex-col shrink-0" style={{ borderColor: subtleBorder, background: tintBg }}>
-          <div className="p-3">
-            <div
-              className="border relative flex flex-col overflow-hidden rounded-xl"
-              style={{ background: darkOverlay, borderColor: subtleBorder }}
+        {/* ── Header ── */}
+        <div
+          className="flex items-center justify-between px-3 py-2 shrink-0"
+          style={{ borderBottom: `1px solid ${subtleBorder}`, background: tintBg }}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-[13px]" style={{ color: "#a78bfa" }}>⬡</span>
+            <span
+              className="text-[12px] font-bold uppercase tracking-wider"
+              style={{ color: "#a78bfa", textShadow: "0 0 8px rgba(167, 139, 250, 0.4)" }}
             >
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Describe what Claude should do... [Enter=submit, Shift+Enter=newline]"
-                className="w-full p-4 pb-2 text-[15px] resize-none rounded-none bg-transparent border-0 outline-none"
-                style={{ lineHeight: "1.6", color: "var(--text-primary)", minHeight: "60px", maxHeight: "200px" }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    submitJob();
-                  }
-                }}
-                onPaste={(e) => {
-                  const items = e.clipboardData?.items;
-                  if (!items) return;
-                  for (let i = 0; i < items.length; i++) {
-                    if (items[i].type.startsWith("image/")) {
-                      e.preventDefault();
-                      const file = items[i].getAsFile();
-                      if (!file) continue;
-                      const reader = new FileReader();
-                      reader.onload = () => {
-                        const base64 = reader.result as string;
-                        setImages((prev) => [...prev, { name: file.name || `image-${Date.now()}.png`, data: base64 }]);
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }
-                }}
-              />
-              <div className="flex items-center gap-2 px-3 py-2 border-t border-crt-amber/20 shrink-0" style={{ background: darkOverlayStrong }}>
-                <select
-                  value={model}
-                  onChange={(e) => { setModel(e.target.value); localStorage.setItem("claude_jobs_model", e.target.value); }}
-                  className="px-2 py-1 text-[13px] bg-transparent border font-pixel uppercase cursor-pointer hover:border-opacity-60 transition-colors"
-                  style={{ borderColor: "var(--border-color)", color: "var(--crt-green)", maxWidth: "160px" }}
-                >
-                  <option value="opus">Opus 4.6</option>
-                  <option value="sonnet">Sonnet 4.5</option>
-                  <option value="haiku">Haiku 4.5</option>
-                </select>
-                <select
-                  value={agentType}
-                  onChange={(e) => { setAgentType(e.target.value); localStorage.setItem("claude_jobs_agent", e.target.value); }}
-                  className="px-2 py-1 text-[13px] bg-transparent border font-pixel uppercase cursor-pointer hover:border-opacity-60 transition-colors"
-                  style={{ borderColor: "var(--border-color)", color: "var(--crt-blue, #60a5fa)", maxWidth: "160px" }}
-                >
-                  {AGENT_OPTIONS.map((a) => (
-                    <option key={a.value} value={a.value}>{a.icon} {a.label}</option>
-                  ))}
-                </select>
-                {images.length > 0 && (
-                  <div className="flex items-center">
-                    <span className="text-[14px] px-2 py-1 border border-crt-blue/30 text-crt-blue/70 uppercase" style={{ letterSpacing: "0" }}>
-                      {images.length} IMG{images.length > 1 ? "S" : ""}
+              Agent
+            </span>
+            {runningCount > 0 && (
+              <span className="flex items-center gap-1 text-[10px] font-bold" style={{ color: "#3b82f6" }}>
+                <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#3b82f6" }} />
+                {runningCount} active
+              </span>
+            )}
+            {error && (
+              <span className="text-[10px] truncate" style={{ color: "var(--crt-red)" }}>{error}</span>
+            )}
+          </div>
+          <button
+            onClick={() => setAgentSidebarOpen(false)}
+            className="flex items-center justify-center transition-all rounded"
+            style={{ width: "24px", height: "24px", color: "var(--text-tertiary)" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "var(--text-primary)")}
+            onMouseLeave={e => (e.currentTarget.style.color = "var(--text-tertiary)")}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* ── Model selector ── */}
+        <div className="flex items-center gap-1.5 px-3 py-2 shrink-0" style={{ borderBottom: `1px solid ${subtleBorder}`, background: tintBg }}>
+          {MODEL_CHIPS.map(m => (
+            <button
+              key={m.value}
+              onClick={() => { setModel(m.value); localStorage.setItem("claude_jobs_model", m.value); }}
+              className="px-2.5 py-1 transition-all"
+              style={{
+                fontSize: "11px",
+                fontWeight: model === m.value ? 600 : 400,
+                background: model === m.value ? `${m.color}18` : "transparent",
+                border: model === m.value ? `1px solid ${m.color}40` : "1px solid transparent",
+                color: model === m.value ? m.color : "var(--text-tertiary)",
+                borderRadius: "5px",
+                cursor: "pointer",
+              }}
+            >
+              {m.label}
+            </button>
+          ))}
+          <div className="flex-1" />
+          <select
+            value={agentType}
+            onChange={(e) => { setAgentType(e.target.value); localStorage.setItem("claude_jobs_agent", e.target.value); }}
+            className="px-1.5 py-0.5 text-[10px] bg-transparent border uppercase cursor-pointer transition-colors"
+            style={{ borderColor: subtleBorder, color: "var(--crt-blue)", borderRadius: "4px" }}
+          >
+            {AGENT_OPTIONS.map((a) => (
+              <option key={a.value} value={a.value}>{a.icon} {a.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* ── Main content area ── */}
+        <div ref={outputRef} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+          {selectedJobData ? (
+            <div className="flex flex-col h-full">
+              {/* Job header */}
+              <div className="px-3 py-2.5 shrink-0" style={{ borderBottom: `1px solid ${subtleBorder}`, background: tintBg }}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[11px] ${isRunning ? "led-pulse" : ""}`} style={{ color: STATUS_COLOR[selectedJobData.status] }}>
+                      {STATUS_ICON[selectedJobData.status]}
                     </span>
-                    <button onClick={() => setImages([])} className="text-[14px] text-crt-red/60 hover:text-crt-red ml-1 transition-colors" title="Clear all images">✕</button>
+                    <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: STATUS_COLOR[selectedJobData.status] }}>
+                      {STATUS_LABEL[selectedJobData.status]}
+                    </span>
+                    <span className="text-[10px] uppercase" style={{ color: "var(--text-tertiary)" }}>
+                      {selectedJobData.model}
+                    </span>
+                    <span className="text-[10px] font-mono" style={{ color: "var(--text-tertiary)", opacity: 0.6 }}>
+                      {selectedJobData.id.slice(0, 8)}
+                    </span>
                   </div>
-                )}
-                <div className="flex-1" />
-                {selectedJobData && (
-                  <div className="flex items-center gap-2 mr-2">
-                    <span className="text-[13px]" style={{ color: STATUS_COLOR[selectedJobData.status] }}>
-                      {STATUS_ICON[selectedJobData.status]} {STATUS_LABEL[selectedJobData.status]}
-                    </span>
-                    {(selectedJobData.status === "running" || selectedJobData.status === "pending") && (
+                  <div className="flex items-center gap-1.5">
+                    {isRunning && (
                       <button
                         onClick={() => cancelJob(selectedJobData.id)}
-                        className="text-[10px] px-1.5 py-0.5 border border-red-500/20 text-red-400/50 hover:bg-red-500/10 hover:text-red-400 transition-all uppercase"
+                        className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded transition-all"
+                        style={{ color: "var(--crt-red)", border: "1px solid rgba(239,68,68,0.3)" }}
                       >
-                        CANCEL
+                        STOP
+                      </button>
+                    )}
+                    {["completed", "failed", "cancelled"].includes(selectedJobData.status) && (
+                      <button
+                        onClick={() => deleteJob(selectedJobData.id)}
+                        className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded transition-all"
+                        style={{ color: "var(--text-tertiary)", border: `1px solid ${subtleBorder}` }}
+                      >
+                        DELETE
                       </button>
                     )}
                     <button
                       onClick={() => { setSelectedJob(null); setStreamOutput(""); }}
-                      className="text-[13px] text-crt-green/30 hover:text-crt-red transition-colors"
-                      title="Deselect"
+                      className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded transition-all"
+                      style={{ color: "var(--text-tertiary)", border: `1px solid ${subtleBorder}` }}
                     >
-                      ✕
+                      BACK
                     </button>
                   </div>
-                )}
-                <button
-                  onClick={submitJob}
-                  disabled={submitting || !prompt.trim()}
-                  className="pixel-btn text-[13px] py-1.5 px-6 uppercase"
-                  style={{ letterSpacing: "0.02em" }}
-                >
-                  {submitting ? <span className="animate-pulse">...</span> : "Run"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom: Output (left) | Tasks (right) split */}
-        <div className="flex-1 flex flex-row overflow-hidden min-w-0">
-          {/* Left: Output Area */}
-          <div ref={outputRef} className="flex-1 overflow-y-auto">
-            {selectedJobData ? (
-              <pre
-                className="px-6 pt-4 pb-8 m-0 whitespace-pre-wrap text-[13px] leading-relaxed font-mono"
-                style={{ color: "var(--text-primary)" }}
-              >
-                {(streamOutput || selectedJobData.output)
-                  ? renderOutput(streamOutput || selectedJobData.output)
-                  : (selectedJobData.status === "pending" ? (
-                    <span style={{ color: "var(--crt-amber)", opacity: 0.7 }}>{"Queued — waiting for worker...\n\n"}</span>
-                  ) : selectedJobData.status === "running" ? (
-                    <span className="led-pulse" style={{ color: "var(--crt-green)", opacity: 0.7 }}>{"Running...\n\n"}</span>
-                  ) : (
-                    <span style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>No output</span>
-                  ))}
-              </pre>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center gap-4">
-                <span className="text-[40px] opacity-5">⬡</span>
-                <span className="text-[13px] uppercase" style={{ color: "var(--text-tertiary)", opacity: 0.2, letterSpacing: "0.08em" }}>
-                  Submit a task or select one from the list
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Right: Task List */}
-          <div className="flex flex-col overflow-hidden" style={{ width: "40%", borderLeft: `1px solid var(--border-color)`, background: "var(--bg-secondary)" }}>
-            {/* Search & Filter */}
-            <div className="border-b px-3 py-1.5 flex items-center gap-2 shrink-0" style={{ borderColor: subtleBorder }}>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Filter tasks..."
-                className="flex-1 min-w-0 px-1 py-0.5 text-[11px] border-none bg-transparent focus:outline-none placeholder:opacity-20 transition-colors"
-                style={{ color: "var(--text-secondary)" }}
-              />
-              <div className="flex gap-1.5 shrink-0 items-center">
-                {["running", "pending", "completed", "failed", "cancelled"].map((status) => {
-                  const count = jobs.filter(j => j.status === status && (!selectedModule || (j.work_dir && (j.work_dir.includes(`/orbit/${selectedModule}`) || j.work_dir.includes("/orbit/claude"))))).length;
-                  if (count === 0) return null;
-                  const isActive = statusFilter === status;
-                  return (
-                    <button
-                      key={status}
-                      onClick={() => setStatusFilter(isActive ? null : status)}
-                      className="text-[10px] transition-all whitespace-nowrap border-none bg-transparent cursor-pointer"
-                      style={{ color: STATUS_COLOR[status], opacity: isActive ? 0.9 : 0.3 }}
-                    >
-                      {STATUS_ICON[status]}{count}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Job List */}
-            <div className="flex-1 overflow-y-auto">
-              {loading && !jobs.length ? (
-                <div className="p-8 text-center">
-                  <p className="text-[11px] cursor-blink" style={{ color: "var(--text-tertiary)" }}>LOADING JOBS</p>
                 </div>
-              ) : filteredJobs.length === 0 ? (
-                <div className="p-8 text-center">
-                  <p className="text-[11px]" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>No agent tasks found</p>
+                <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-secondary)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                  {selectedJobData.prompt}
+                </p>
+              </div>
+
+              {/* Output */}
+              <div className="flex-1 overflow-y-auto p-3">
+                {output ? (
+                  <pre className="m-0 whitespace-pre-wrap text-[11px] leading-relaxed" style={{ color: "var(--text-primary)", fontFamily: "monospace", wordBreak: "break-word" }}>
+                    {renderOutput(output)}
+                    {isRunning && <span className="inline-block animate-pulse" style={{ color: STATUS_COLOR.running }}>&#9610;</span>}
+                  </pre>
+                ) : (
+                  <div className="flex items-center justify-center h-32">
+                    {isRunning ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#3b82f6" }} />
+                        <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#3b82f6", animationDelay: "0.2s" }} />
+                        <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#3b82f6", animationDelay: "0.4s" }} />
+                      </div>
+                    ) : (
+                      <p className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>No output</p>
+                    )}
+                  </div>
+                )}
+
+                {selectedJobData.error && (
+                  <div className="mt-3 p-2.5 rounded-lg" style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                    <span className="text-[9px] font-bold uppercase" style={{ color: "var(--crt-red)" }}>Error</span>
+                    <pre className="m-0 mt-1 whitespace-pre-wrap text-[10px]" style={{ color: "var(--crt-red)", fontFamily: "monospace" }}>
+                      {selectedJobData.error}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* Job list */
+            <div>
+              {/* Filter bar */}
+              <div className="flex items-center gap-2 px-3 py-1.5 sticky top-0 z-10" style={{ borderBottom: `1px solid ${subtleBorder}`, background: "var(--bg-primary)" }}>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="filter..."
+                  className="flex-1 min-w-0 px-1 py-0.5 text-[11px] border-none bg-transparent focus:outline-none placeholder:opacity-20"
+                  style={{ color: "var(--text-secondary)" }}
+                />
+                <div className="flex gap-1 shrink-0 items-center">
+                  {["running", "pending", "completed", "failed"].map((status) => {
+                    const count = filteredJobs.filter(j => j.status === status).length;
+                    if (count === 0) return null;
+                    const isActive = statusFilter === status;
+                    return (
+                      <button
+                        key={status}
+                        onClick={() => setStatusFilter(isActive ? null : status)}
+                        className="text-[10px] transition-all border-none bg-transparent cursor-pointer"
+                        style={{ color: STATUS_COLOR[status], opacity: isActive ? 0.9 : 0.3 }}
+                      >
+                        {STATUS_ICON[status]}{count}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {filteredJobs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3" style={{ opacity: 0.4 }}>
+                  <span className="text-[28px]" style={{ color: "#a78bfa" }}>⬡</span>
+                  <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
+                    No tasks yet
+                  </p>
+                  <p className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>
+                    Submit a prompt below
+                  </p>
                 </div>
               ) : (
-                filteredJobs.map((job) => {
-                  const isSelected = selectedJob === job.id;
+                filteredJobs.map(job => {
                   const color = STATUS_COLOR[job.status];
                   const moduleName = job.work_dir ? extractModuleFromWorkDir(job.work_dir) : null;
                   const { cleanPrompt } = parsePromptImages(job.prompt);
-                  const isDragOver = dragOverJobId === job.id && draggedJobId !== job.id;
                   return (
-                    <div
+                    <button
                       key={job.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, job.id)}
-                      onDragEnd={handleDragEnd}
-                      onDragOver={(e) => handleDragOver(e, job.id)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, job.id)}
                       onClick={() => viewJob(job)}
-                      className="cursor-pointer transition-all duration-150"
-                      style={{
-                        borderBottom: `1px solid ${subtleBorder}`,
-                        borderLeft: isSelected ? `3px solid ${color}` : "3px solid transparent",
-                        borderTop: isDragOver ? "2px solid var(--crt-blue, #60a5fa)" : "2px solid transparent",
-                        background: isSelected ? `${color}08` : isDragOver ? "rgba(96,165,250,0.05)" : "transparent",
-                      }}
+                      className="w-full text-left transition-all group"
+                      style={{ borderBottom: `1px solid ${subtleBorder}` }}
+                      onMouseEnter={e => (e.currentTarget.style.background = tintBgStrong)}
+                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                     >
-                      <div className="px-3 py-2">
+                      <div className="px-3 py-2.5">
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-1.5">
-                            <span
-                              className="text-[10px] cursor-grab active:cursor-grabbing select-none"
-                              style={{ color: "var(--text-tertiary)", opacity: 0.3 }}
-                              title="Drag to reorder"
-                            >⠿</span>
                             <span className={`text-[11px] ${job.status === "running" ? "led-pulse" : ""}`} style={{ color }}>{STATUS_ICON[job.status]}</span>
-                            <span className="text-[11px] font-pixel" style={{ color, letterSpacing: "0" }}>{STATUS_LABEL[job.status]}</span>
-                            <span className="text-[10px]" style={{ color: "var(--text-tertiary)", opacity: 0.4 }}>
-                              {job.model === "opus" ? "Op" : job.model === "sonnet" ? "So" : job.model === "haiku" ? "Ha" : job.model}
+                            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color }}>{STATUS_LABEL[job.status]}</span>
+                            <span className="text-[10px] uppercase" style={{ color: "var(--text-tertiary)" }}>
+                              {job.model === "opus" ? "Op" : job.model === "sonnet" ? "So" : "Ha"}
                             </span>
-                            {job.work_dir && moduleName && moduleName !== "claude" && (
+                            {moduleName && moduleName !== "claude" && (
                               <span className="text-[9px] uppercase" style={{ color: "var(--crt-amber)", opacity: 0.4 }}>{moduleName}</span>
                             )}
                           </div>
-                          <span className="text-[10px]" style={{ color: faintGreenText, opacity: 0.5 }}>{timeSince(job.created_at)}</span>
+                          <span className="text-[10px] font-mono" style={{ color: "var(--text-tertiary)" }}>{timeSince(job.created_at)}</span>
                         </div>
-                        <p className="text-[12px] leading-relaxed" style={{ color: "var(--text-secondary)", opacity: 0.85, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {cleanPrompt.length > 60 ? cleanPrompt.slice(0, 60) + "..." : cleanPrompt}
+                        <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-secondary)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                          {cleanPrompt}
                         </p>
+                        {/* Hover actions */}
+                        <div className="flex justify-end gap-1.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {job.status === "running" && (
+                            <span
+                              onClick={(e) => { e.stopPropagation(); cancelJob(job.id); }}
+                              className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded cursor-pointer"
+                              style={{ color: "var(--crt-red)", border: "1px solid rgba(239,68,68,0.25)" }}
+                            >
+                              CANCEL
+                            </span>
+                          )}
+                          {["completed", "failed", "cancelled"].includes(job.status) && (
+                            <span
+                              onClick={(e) => { e.stopPropagation(); deleteJob(job.id); }}
+                              className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded cursor-pointer"
+                              style={{ color: "var(--text-tertiary)", border: `1px solid ${subtleBorder}` }}
+                            >
+                              DELETE
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    </button>
                   );
                 })
               )}
             </div>
-          </div>
+          )}
+        </div>
 
+        {/* ── Input bar (bottom) ── */}
+        <div className="shrink-0 px-3 py-2.5" style={{ borderTop: `1px solid ${subtleBorder}`, background: tintBg }}>
+          <div className="flex gap-1.5 items-center">
+            <input
+              type="text"
+              value={prompt}
+              onChange={e => setPrompt(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitJob(); } }}
+              onPaste={(e) => {
+                const items = e.clipboardData?.items;
+                if (!items) return;
+                for (let i = 0; i < items.length; i++) {
+                  if (items[i].type.startsWith("image/")) {
+                    e.preventDefault();
+                    const file = items[i].getAsFile();
+                    if (!file) continue;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const base64 = reader.result as string;
+                      setImages((prev) => [...prev, { name: file.name || `image-${Date.now()}.png`, data: base64 }]);
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }
+              }}
+              placeholder="ask agent..."
+              disabled={submitting}
+              className="flex-1 px-2.5 py-2 rounded-lg border outline-none text-[12px]"
+              style={{
+                backgroundColor: darkOverlay,
+                borderColor: submitting ? `${activeModelChip.color}40` : subtleBorder,
+                color: "var(--text-primary)",
+                fontFamily: "monospace",
+              }}
+              onFocus={e => (e.currentTarget.style.borderColor = activeModelChip.color)}
+              onBlur={e => (e.currentTarget.style.borderColor = subtleBorder)}
+            />
+            <button
+              onClick={submitJob}
+              disabled={!prompt.trim() || submitting}
+              className="px-3 py-2 rounded-lg font-bold transition-all disabled:opacity-30"
+              style={{
+                backgroundColor: `${activeModelChip.color}18`,
+                border: `1px solid ${activeModelChip.color}40`,
+                color: activeModelChip.color,
+              }}
+            >
+              {submitting ? <span className="animate-spin text-[14px]">⟳</span> : "▶"}
+            </button>
+          </div>
+          {images.length > 0 && (
+            <div className="flex items-center gap-1 mt-1.5">
+              <span className="text-[10px] px-1.5 py-0.5 border rounded" style={{ borderColor: "rgba(96,165,250,0.3)", color: "rgba(96,165,250,0.7)" }}>
+                {images.length} IMG{images.length > 1 ? "S" : ""}
+              </span>
+              <button onClick={() => setImages([])} className="text-[11px] transition-colors" style={{ color: "var(--crt-red)", opacity: 0.6 }} title="Clear images">✕</button>
+            </div>
+          )}
+          <div className="flex items-center justify-between mt-1.5 px-0.5">
+            <span className="text-[9px]" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>
+              Enter to submit
+            </span>
+            <span className="text-[9px]" style={{ color: "var(--text-tertiary)", opacity: 0.5 }}>
+              {activeModelChip.label} · {apiUrl.replace("http://", "")}
+            </span>
+          </div>
         </div>
       </div>
     );
@@ -4626,6 +4927,149 @@ export default function Home() {
         <div className="flex-1 overflow-y-auto">
           {sidebarView === "overview" && (
             <div className="p-4 flex flex-col gap-4">
+
+              {/* ── Routy Gateway ──────────────────────── */}
+              <div className="border rounded" style={{ borderColor: routyConnected ? "color-mix(in srgb, var(--crt-blue) 25%, transparent)" : "var(--border-color)", background: "var(--bg-tint)" }}>
+                <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: "var(--border-color)" }}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] uppercase font-bold" style={{ color: "var(--crt-blue)", letterSpacing: "0.02em" }}>GATEWAY</span>
+                    <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: routyConnected ? "var(--crt-green)" : "var(--crt-red)", boxShadow: routyConnected ? "0 0 6px var(--crt-green)" : "0 0 6px var(--crt-red)" }} />
+                    <span className="text-[10px]" style={{ color: routyConnected ? "var(--crt-green)" : "var(--crt-red)" }}>
+                      {routyConnected ? "online" : "offline"}
+                    </span>
+                  </div>
+                  <button
+                    onClick={syncRouty}
+                    disabled={routySyncing || !routyConnected}
+                    className="text-[10px] px-2 py-0.5 rounded-sm border uppercase font-bold transition-all hover:brightness-125"
+                    style={{
+                      borderColor: routySyncing ? "var(--border-color)" : "color-mix(in srgb, var(--crt-blue) 40%, transparent)",
+                      color: routySyncing ? "var(--text-tertiary)" : "var(--crt-blue)",
+                      background: "color-mix(in srgb, var(--crt-blue) 6%, transparent)",
+                      opacity: routySyncing || !routyConnected ? 0.5 : 1,
+                    }}
+                  >
+                    {routySyncing ? "syncing..." : "sync"}
+                  </button>
+                </div>
+
+                {/* Stats row */}
+                {routyStats && (
+                  <div className="px-3 pt-2 pb-1 grid grid-cols-4 gap-2">
+                    {[
+                      { label: "apps", value: routyStats.apps, color: "var(--crt-green)" },
+                      { label: "apis", value: routyStats.apis, color: "var(--crt-blue)" },
+                      { label: "total", value: routyStats.total, color: "var(--crt-amber)" },
+                      { label: "cpu", value: `${routyStats.cpu_usage_percent.toFixed(0)}%`, color: routyStats.cpu_usage_percent > 80 ? "var(--crt-red)" : routyStats.cpu_usage_percent > 50 ? "var(--crt-amber)" : "var(--crt-green)" },
+                    ].map(s => (
+                      <div key={s.label} className="p-2 rounded border" style={{ borderColor: "var(--border-color)", background: "var(--bg-secondary)" }}>
+                        <div className="text-[18px] font-bold" style={{ color: s.color, letterSpacing: "-0.02em" }}>{s.value}</div>
+                        <div className="text-[10px] uppercase mt-0.5" style={{ color: "var(--text-tertiary)", letterSpacing: "0.04em" }}>{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Search + tabs */}
+                <div className="px-3 py-2 flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={routySearch}
+                    onChange={e => setRoutySearch(e.target.value)}
+                    placeholder="search services..."
+                    className="flex-1 px-2 py-1 text-[12px] bg-transparent border rounded-sm outline-none"
+                    style={{ borderColor: "var(--border-color)", color: "var(--text-primary)" }}
+                  />
+                  <div className="flex items-center border rounded-sm overflow-hidden" style={{ borderColor: "var(--border-color)" }}>
+                    {(["all", "apps", "apis"] as const).map(t => (
+                      <button
+                        key={t}
+                        onClick={() => setRoutyTab(t)}
+                        className="text-[10px] px-2 py-1 uppercase font-bold transition-all"
+                        style={{
+                          background: routyTab === t ? "var(--bg-secondary)" : "transparent",
+                          color: routyTab === t ? "var(--text-primary)" : "var(--text-tertiary)",
+                          borderRight: t !== "apis" ? "1px solid var(--border-color)" : "none",
+                        }}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Services list */}
+                <div className="px-3 pb-3 flex flex-col gap-1.5" style={{ maxHeight: 360, overflowY: "auto" }}>
+                  {!routyConnected ? (
+                    <div className="text-center py-6 text-[13px]" style={{ color: "var(--text-tertiary)" }}>
+                      no gateway on :3000 — start caddy or routy
+                    </div>
+                  ) : routyApps.length === 0 && routyApis.length === 0 ? (
+                    <div className="text-center py-6 text-[13px]" style={{ color: "var(--text-tertiary)" }}>
+                      caddy proxy live on :3000 · routy not running (service list unavailable, routing still works)
+                    </div>
+                  ) : routyFiltered.length === 0 ? (
+                    <div className="text-center py-6 text-[13px]" style={{ color: "var(--text-tertiary)" }}>
+                      {routySearch ? `no services match "${routySearch}"` : "no services registered"}
+                    </div>
+                  ) : (
+                    routyFiltered.map(w => {
+                      const isApp = w._type === "app";
+                      const route = isApp ? `/${w.name}/` : `/api/${w.name}/`;
+                      return (
+                        <div
+                          key={`${w._type}-${w.name}`}
+                          className="p-2.5 rounded border transition-all hover:brightness-110 cursor-default"
+                          style={{
+                            borderColor: "var(--border-color)",
+                            background: "var(--bg-secondary)",
+                          }}
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[13px] font-bold" style={{ color: "var(--text-primary)" }}>{w.name}</span>
+                              <span
+                                className="text-[9px] px-1.5 py-0.5 rounded-sm uppercase font-bold"
+                                style={{
+                                  color: isApp ? "var(--crt-green)" : "var(--crt-blue)",
+                                  background: isApp ? "color-mix(in srgb, var(--crt-green) 10%, transparent)" : "color-mix(in srgb, var(--crt-blue) 10%, transparent)",
+                                  border: `1px solid ${isApp ? "color-mix(in srgb, var(--crt-green) 25%, transparent)" : "color-mix(in srgb, var(--crt-blue) 25%, transparent)"}`,
+                                  letterSpacing: "0.05em",
+                                }}
+                              >
+                                {w._type}
+                              </span>
+                            </div>
+                            <a
+                              href={`${ROUTY_API}${route}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[10px] font-mono transition-opacity hover:opacity-70"
+                              style={{ color: isApp ? "var(--crt-green)" : "var(--crt-blue)", textDecoration: "none" }}
+                            >
+                              {route} &rarr;
+                            </a>
+                          </div>
+                          {w.description && (
+                            <p className="text-[11px] mb-1" style={{ color: "var(--text-tertiary)" }}>{w.description}</p>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <code className="text-[10px] px-1 py-0.5 rounded" style={{ color: "var(--text-tertiary)", background: "var(--bg-primary)" }}>
+                              {w.target_url}
+                            </code>
+                            {w.storage_type && (
+                              <span className="text-[9px] px-1 py-0.5 rounded uppercase font-bold" style={{ color: "var(--crt-amber)", background: "color-mix(in srgb, var(--crt-amber) 8%, transparent)" }}>
+                                {w.storage_type}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
               {/* Status Cards - only show if module has API or App */}
               {(info?.api_url || info?.app_url) && (
               <div className={`grid gap-3 ${info?.api_url && info?.app_url ? "grid-cols-2" : "grid-cols-1"}`}>
@@ -4852,6 +5296,101 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+
+              {/* Logs */}
+              {(info?.api_url || info?.app_url) && (
+              <div className="border rounded" style={{ borderColor: "var(--border-color)", background: "var(--bg-tint)" }}>
+                <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: "var(--border-color)" }}>
+                  <span className="text-[11px] uppercase" style={{ color: "var(--text-tertiary)", letterSpacing: "0.02em" }}>LOGS</span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => { setModuleLogsAutoRefresh(!moduleLogsAutoRefresh); if (!moduleLogsOpen) setModuleLogsOpen("api"); }}
+                      className="text-[9px] px-1.5 py-0.5 rounded-sm border uppercase font-bold transition-all"
+                      style={{
+                        borderColor: moduleLogsAutoRefresh ? "color-mix(in srgb, var(--crt-green) 50%, transparent)" : "color-mix(in srgb, var(--border-color) 50%, transparent)",
+                        color: moduleLogsAutoRefresh ? "var(--crt-green)" : "var(--text-tertiary)",
+                        background: moduleLogsAutoRefresh ? "color-mix(in srgb, var(--crt-green) 8%, transparent)" : "transparent",
+                      }}
+                    >
+                      {moduleLogsAutoRefresh ? "LIVE" : "AUTO"}
+                    </button>
+                    {moduleLogsOpen && (
+                      <button
+                        onClick={fetchModuleLogs}
+                        className="text-[9px] px-1.5 py-0.5 rounded-sm border uppercase font-bold transition-all"
+                        style={{ borderColor: "color-mix(in srgb, var(--border-color) 50%, transparent)", color: "var(--text-tertiary)" }}
+                      >
+                        {moduleLogsLoading ? "..." : "REFRESH"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="p-3 flex flex-col gap-2">
+                  {/* Source tabs */}
+                  <div className="flex items-center gap-1.5">
+                    {info?.api_url && (
+                      <button
+                        onClick={() => setModuleLogsOpen(moduleLogsOpen === "api" ? null : "api")}
+                        className="text-[10px] px-2.5 py-1 rounded-sm border uppercase font-bold transition-all hover:brightness-125"
+                        style={{
+                          borderColor: moduleLogsOpen === "api" ? "color-mix(in srgb, var(--crt-blue) 50%, transparent)" : "color-mix(in srgb, var(--border-color) 50%, transparent)",
+                          color: moduleLogsOpen === "api" ? "var(--crt-blue)" : "var(--text-tertiary)",
+                          background: moduleLogsOpen === "api" ? "color-mix(in srgb, var(--crt-blue) 8%, transparent)" : "transparent",
+                        }}
+                      >
+                        API LOGS
+                      </button>
+                    )}
+                    {info?.app_url && (
+                      <button
+                        onClick={() => setModuleLogsOpen(moduleLogsOpen === "app" ? null : "app")}
+                        className="text-[10px] px-2.5 py-1 rounded-sm border uppercase font-bold transition-all hover:brightness-125"
+                        style={{
+                          borderColor: moduleLogsOpen === "app" ? "color-mix(in srgb, var(--crt-amber) 50%, transparent)" : "color-mix(in srgb, var(--border-color) 50%, transparent)",
+                          color: moduleLogsOpen === "app" ? "var(--crt-amber)" : "var(--text-tertiary)",
+                          background: moduleLogsOpen === "app" ? "color-mix(in srgb, var(--crt-amber) 8%, transparent)" : "transparent",
+                        }}
+                      >
+                        APP LOGS
+                      </button>
+                    )}
+                  </div>
+                  {/* Log output */}
+                  {moduleLogsOpen && (
+                    <div className="border rounded overflow-hidden" style={{ borderColor: moduleLogsOpen === "api" ? "color-mix(in srgb, var(--crt-blue) 25%, transparent)" : "color-mix(in srgb, var(--crt-amber) 25%, transparent)" }}>
+                      <div className="flex items-center justify-between px-3 py-1" style={{ background: moduleLogsOpen === "api" ? "color-mix(in srgb, var(--crt-blue) 4%, transparent)" : "color-mix(in srgb, var(--crt-amber) 4%, transparent)", borderBottom: "1px solid var(--border-color)" }}>
+                        <span className="text-[9px] font-bold uppercase" style={{ color: moduleLogsOpen === "api" ? "var(--crt-blue)" : "var(--crt-amber)", letterSpacing: "0.05em" }}>
+                          {moduleLogsOpen.toUpperCase()} LOGS
+                        </span>
+                        <button onClick={() => setModuleLogsOpen(null)} className="text-[9px] font-bold uppercase" style={{ color: "var(--text-tertiary)", background: "none", border: "none", cursor: "pointer" }}>
+                          CLOSE
+                        </button>
+                      </div>
+                      <pre
+                        className="px-3 py-2 text-[11px] overflow-auto"
+                        style={{
+                          color: "var(--text-secondary)",
+                          fontFamily: "var(--font-code, monospace)",
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-all",
+                          lineHeight: "1.5",
+                          maxHeight: "300px",
+                          background: "var(--bg-primary)",
+                          margin: 0,
+                        }}
+                        ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }}
+                      >
+                        {(() => {
+                          const keys = Object.keys(moduleLogs);
+                          const matchKey = keys.find(k => k.toLowerCase().includes(moduleLogsOpen));
+                          return matchKey ? moduleLogs[matchKey] || "(empty)" : keys.length > 0 ? moduleLogs[keys[0]] || "(empty)" : moduleLogsLoading ? "Loading..." : "(no logs found)";
+                        })()}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              </div>
+              )}
 
               {/* Scripts & Ports */}
               <div className="border rounded" style={{ borderColor: "var(--border-color)", background: "var(--bg-tint)" }}>
@@ -5336,6 +5875,60 @@ export default function Home() {
         color: "var(--text-primary)",
       }}
     >
+      {/* Versions overlay (mod-protocol, storage-agnostic) */}
+      {showVersions && selectedModule && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(7, 7, 13, 0.65)",
+            backdropFilter: "blur(8px)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "center",
+            padding: "48px 24px",
+            overflowY: "auto",
+          }}
+          onClick={() => setShowVersions(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: 1100, width: "100%" }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 16,
+                color: "var(--text-primary)",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 13, color: "var(--text-tertiary)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                  Mod Protocol · Version Control
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 600, marginTop: 4 }}>{selectedModule}</div>
+              </div>
+              <button
+                className="glass-btn ghost"
+                onClick={() => setShowVersions(false)}
+                title="Close"
+              >
+                close
+              </button>
+            </div>
+            <VersionsPanel
+              apiBase={apiUrl}
+              module={selectedModule}
+              authHeader={token ? { Authorization: `Bearer ${token}` } : undefined}
+              onForked={(m) => { setShowVersions(false); setSelectedModule(m); }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* ── Compact Nav Bar ───────────────────────────────────────── */}
       <div
         className="flex items-center px-4 py-1.5 shrink-0"
@@ -5347,57 +5940,102 @@ export default function Home() {
           <div className="flex items-center gap-3">
             {/* Brand */}
             <span style={{ color: "var(--text-tertiary)", opacity: 0.15 }}>│</span>
-            {/* Module selector dropdown */}
+            {/* Module/Folder selector dropdown */}
             <div className="relative" ref={headerModuleRef}>
               {showHeaderModuleDropdown ? (
-                <input
-                  type="text"
-                  autoFocus
-                  value={headerModuleSearch}
-                  onChange={(e) => {
-                    setHeaderModuleSearch(e.target.value);
-                    fetchModules(e.target.value);
-                  }}
-                  onFocus={(e) => {
-                    e.target.select();
-                    if (!moduleList.length) fetchModules(headerModuleSearch);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && moduleList.length > 0) {
-                      const firstModule = moduleList[0];
-                      resetModuleState(firstModule);
-                      setSelectedModule(firstModule.name);
-                      setSelectedModuleInfo(firstModule);
-                      setWorkDir(firstModule.path);
-                      setHeaderModuleSearch("");
-                      setShowHeaderModuleDropdown(false);
-                      fetchModuleConfig(firstModule.name);
-                    }
-                    if (e.key === "Escape") {
-                      setShowHeaderModuleDropdown(false);
-                      setHeaderModuleSearch("");
-                    }
-                  }}
-                  placeholder="search modules..."
-                  className="px-3 py-1 bg-transparent text-crt-green border border-crt-green/40 font-code outline-none w-[220px]"
-                  style={{ letterSpacing: "0.01em", fontSize: "20px" }}
-                />
+                <div className="flex items-center gap-0">
+                  <input
+                    type="text"
+                    autoFocus
+                    value={headerModuleSearch}
+                    onChange={(e) => {
+                      setHeaderModuleSearch(e.target.value);
+                      if (selectorMode === "modules") {
+                        fetchModules(e.target.value);
+                      } else {
+                        fetchFolders(e.target.value);
+                        fetchFolderSuggestions(e.target.value);
+                      }
+                    }}
+                    onFocus={(e) => {
+                      e.target.select();
+                      if (selectorMode === "modules") {
+                        if (!moduleList.length) fetchModules(headerModuleSearch);
+                      } else {
+                        fetchFolders(headerModuleSearch);
+                        if (headerModuleSearch) fetchFolderSuggestions(headerModuleSearch);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Tab") {
+                        e.preventDefault();
+                        const next = selectorMode === "modules" ? "folders" : "modules";
+                        setSelectorMode(next);
+                        if (next === "folders") { fetchFolders(headerModuleSearch); if (headerModuleSearch) fetchFolderSuggestions(headerModuleSearch); }
+                        else { fetchModules(headerModuleSearch); }
+                      }
+                      if (e.key === "Enter") {
+                        if (selectorMode === "modules" && moduleList.length > 0) {
+                          const firstModule = moduleList[0];
+                          resetModuleState(firstModule);
+                          setSelectedModule(firstModule.name);
+                          setSelectedModuleInfo(firstModule);
+                          setWorkDir(firstModule.path);
+                          setHeaderModuleSearch("");
+                          setShowHeaderModuleDropdown(false);
+                          fetchModuleConfig(firstModule.name);
+                        } else if (selectorMode === "folders") {
+                          const pick = folderSuggestions[0] || folderList[0];
+                          if (pick) {
+                            setWorkDir(pick.path);
+                            setSelectedModule(pick.name.split("/").pop() || pick.name);
+                            setHeaderModuleSearch("");
+                            setShowHeaderModuleDropdown(false);
+                          }
+                        }
+                      }
+                      if (e.key === "Escape") {
+                        setShowHeaderModuleDropdown(false);
+                        setHeaderModuleSearch("");
+                      }
+                    }}
+                    placeholder={selectorMode === "modules" ? "search modules..." : "search folders..."}
+                    className="px-3 py-1 bg-transparent text-crt-green border border-crt-green/40 font-code outline-none w-[220px]"
+                    style={{ letterSpacing: "0.01em", fontSize: "20px" }}
+                  />
+                  {/* Mode toggle: modules vs folders */}
+                  <div className="flex ml-1 border border-crt-green/20 rounded overflow-hidden">
+                    <button
+                      onMouseDown={(e) => { e.preventDefault(); setSelectorMode("modules"); fetchModules(headerModuleSearch); }}
+                      className={`text-[10px] px-2 py-1 font-code transition-colors ${selectorMode === "modules" ? "bg-crt-green/15 text-crt-green" : "text-crt-green/30 hover:text-crt-green/50"}`}
+                    >MOD</button>
+                    <button
+                      onMouseDown={(e) => { e.preventDefault(); setSelectorMode("folders"); fetchFolders(headerModuleSearch); if (headerModuleSearch) fetchFolderSuggestions(headerModuleSearch); }}
+                      className={`text-[10px] px-2 py-1 font-code transition-colors ${selectorMode === "folders" ? "bg-crt-blue/15 text-crt-blue" : "text-crt-green/30 hover:text-crt-green/50"}`}
+                    >DIR</button>
+                  </div>
+                </div>
               ) : (
                 <button
                   onClick={() => {
                     setShowHeaderModuleDropdown(true);
                     setHeaderModuleSearch("");
-                    if (!moduleList.length) fetchModules("");
+                    if (selectorMode === "modules") {
+                      if (!moduleList.length) fetchModules("");
+                    } else {
+                      fetchFolders("");
+                    }
                   }}
                   className="flex items-center gap-2 font-bold text-crt-green font-code cursor-pointer hover:text-crt-green/80 transition-colors group"
                   style={{ letterSpacing: "0.01em", fontSize: "20px" }}
-                  title="Click to switch module"
+                  title="Click to switch module/folder (Tab to toggle mode)"
                 >
                   {selectedModule || "claude"}
                   <span style={{ color: "var(--crt-green)", opacity: 0.25, fontSize: "11px", transition: "opacity 0.2s" }} className="group-hover:!opacity-50">▾</span>
                 </button>
               )}
-              {showHeaderModuleDropdown && moduleList.length > 0 && (() => {
+              {/* Modules dropdown */}
+              {showHeaderModuleDropdown && selectorMode === "modules" && moduleList.length > 0 && (() => {
                 const owners = [...new Set(moduleList.map(m => m.owner).filter(Boolean))] as string[];
                 const filtered = ownerFilter ? moduleList.filter(m => m.owner === ownerFilter) : moduleList;
                 return (
@@ -5479,6 +6117,110 @@ export default function Home() {
                 </div>
                 );
               })()}
+              {/* Folders dropdown with embedding suggestions */}
+              {showHeaderModuleDropdown && selectorMode === "folders" && (folderList.length > 0 || folderSuggestions.length > 0) && (
+                <div
+                  className="absolute left-0 top-full mt-1 border border-crt-blue/20 max-h-[450px] overflow-y-auto z-50 rounded min-w-[380px]"
+                  style={{ background: "var(--bg-primary)", boxShadow: "0 12px 48px rgba(0,0,0,0.15)", backdropFilter: "blur(12px)" }}
+                >
+                  {/* Embedding suggestions section */}
+                  {folderSuggestions.length > 0 && (
+                    <>
+                      <div className="px-3 py-1.5 border-b border-crt-blue/20 sticky top-0 z-10" style={{ background: "var(--bg-primary)" }}>
+                        <span className="text-[10px] text-crt-blue/50 uppercase font-code">Suggested by similarity</span>
+                      </div>
+                      {folderSuggestions.map((f) => (
+                        <div
+                          key={`suggest-${f.path}`}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setWorkDir(f.path);
+                            const folderName = f.name.split("/").pop() || f.name;
+                            setSelectedModule(folderName);
+                            setSelectedModuleInfo(null);
+                            setHeaderModuleSearch("");
+                            setShowHeaderModuleDropdown(false);
+                            // try to load config if it's a module
+                            if (f.has_config || f.has_mod) fetchModuleConfig(folderName);
+                          }}
+                          className={`px-3 py-2 cursor-pointer hover:bg-crt-blue/8 transition-colors border-b border-crt-blue/5 ${f.path === workDir ? 'bg-crt-blue/6' : ''}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-[10px] text-crt-blue/40 shrink-0">◈</span>
+                              <span className="text-[13px] font-code text-crt-blue/80 truncate">{f.name}</span>
+                              <span className="text-[9px] px-1 py-0.5 border border-crt-blue/20 text-crt-blue/40 font-mono shrink-0">
+                                {(f.score * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0 ml-2">
+                              {f.has_config && (
+                                <span className="text-[9px] px-1 py-0.5 border border-crt-amber/25 text-crt-amber/50 rounded-sm">CFG</span>
+                              )}
+                              {f.has_mod && (
+                                <span className="text-[9px] px-1 py-0.5 border border-crt-green/25 text-crt-green/50 rounded-sm">MOD</span>
+                              )}
+                            </div>
+                          </div>
+                          {f.preview && (
+                            <div className="text-[10px] text-crt-blue/20 mt-0.5 truncate font-mono">{f.preview}</div>
+                          )}
+                          <div className="text-[10px] font-mono text-crt-blue/15 mt-0.5 truncate" title={f.path}>
+                            {f.display || f.path.replace(/^\/Users\/[^/]+/, "~")}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                  {/* Folder listing */}
+                  {folderList.length > 0 && (
+                    <>
+                      <div className="px-3 py-1.5 border-b border-crt-green/20 sticky top-0 z-10" style={{ background: "var(--bg-primary)" }}>
+                        <span className="text-[10px] text-crt-green/40 uppercase font-code">Folders</span>
+                      </div>
+                      {folderList.slice(0, 30).map((f) => (
+                        <div
+                          key={`folder-${f.path}`}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setWorkDir(f.path);
+                            const folderName = f.name.split("/").pop() || f.name;
+                            setSelectedModule(folderName);
+                            setSelectedModuleInfo(null);
+                            setHeaderModuleSearch("");
+                            setShowHeaderModuleDropdown(false);
+                            if (f.has_config || f.has_mod) fetchModuleConfig(folderName);
+                          }}
+                          className={`px-3 py-1.5 cursor-pointer hover:bg-crt-green/8 transition-colors border-b border-crt-green/5 ${f.path === workDir ? 'bg-crt-green/6' : ''}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-[10px] text-crt-green/30 shrink-0">▸</span>
+                              <span className="text-[12px] font-code text-crt-green/70 truncate">{f.name}</span>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0 ml-2">
+                              {f.has_config && (
+                                <span className="text-[9px] px-1 py-0.5 border border-crt-amber/20 text-crt-amber/40 rounded-sm">CFG</span>
+                              )}
+                              {f.has_mod && (
+                                <span className="text-[9px] px-1 py-0.5 border border-crt-green/20 text-crt-green/40 rounded-sm">MOD</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-[10px] font-mono text-crt-green/15 truncate" title={f.path}>
+                            {f.display || f.path.replace(/^\/Users\/[^/]+/, "~")}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                  {folderList.length === 0 && folderSuggestions.length === 0 && (
+                    <div className="px-3 py-4 text-[12px] text-crt-green/30 text-center font-code">
+                      No folders found. Type to search.
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             {selectedModule && effectiveConfig?.owner && (
               <span
@@ -5958,6 +6700,23 @@ export default function Home() {
               BACKEND: {moduleApiUrl.replace(/^https?:\/\//, "")}
             </span>
           )}
+          <span style={{ color: "var(--text-tertiary)", opacity: 0.2 }}>
+            │
+          </span>
+          {/* Versions (mod-protocol snapshot/fork/restore) */}
+          <button
+            onClick={() => setShowVersions(true)}
+            className="pixel-btn text-[13px] py-0.5 px-2"
+            style={{
+              background: "transparent",
+              color: "var(--accent-color)",
+              border: "1px solid var(--accent-color)",
+            }}
+            title="Versions · snapshot / fork / restore via mod protocol"
+            disabled={!selectedModule}
+          >
+            VERSIONS
+          </button>
           <span style={{ color: "var(--text-tertiary)", opacity: 0.2 }}>
             │
           </span>

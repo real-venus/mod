@@ -1,104 +1,118 @@
-# 🚀 Store Module
+# mod store
 
-> *"Simplicity is the ultimate sophistication."* - Leonardo da Vinci
+The mod **store** module: a local key-value store **and** an app for
+decentralized storage via the `filecoin` and `hippius` orbit modules, gated
+by MetaMask Sign-In with Ethereum (SIWE).
 
-## 💎 Overview
-
-A **blazingly fast**, lightweight, persistent key-value store that just works. Built for developers who value elegance and power in equal measure.
-
-## ✨ Features
-
-- 🔑 **Dead Simple API** - Get/Set operations that feel natural
-- 💾 **Bulletproof Persistence** - Your data survives everything
-- 🐳 **Docker Native** - Deploy anywhere, instantly
-- ⚡ **Lightning Fast** - Optimized for performance
-- 🧪 **Battle Tested** - Comprehensive test coverage
-- 🎯 **Zero Config** - Works out of the box
-
-## 🎮 Quick Start
-
-```python
-from store import Store
-
-# Initialize like a boss
-store = Store()
-
-# Store anything
-store.set('user:1337', {'name': 'Mr. Robot', 'level': 'god'})
-
-# Retrieve instantly
-user = store.get('user:1337')
+```
+mod/core/store/
+├── src/                      # local-FS Store class + backend adapters
+│   ├── mod.py                # Store (KV) + serve()/app()/api()/backends()
+│   ├── filecoin/mod.py       # adapter → m.mod('filecoin')()
+│   ├── hippius/mod.py        # adapter → m.mod('hippius')()
+│   └── localfs/              # localfs backend (existing)
+├── api/api.py                # FastAPI gateway + SIWE
+├── app/                      # Next.js app: MetaMask connect → SIWE → upload
+├── config.json
+├── requirements.txt
+├── Dockerfile
+├── docker-compose.yml
+├── docker-entrypoint.sh
+├── serve.sh                  # local launcher (no docker)
+└── test/
 ```
 
-## 🐳 Docker Deployment
+## Run
+
+### Docker (recommended)
 
 ```bash
-# Launch it
-docker-compose up -d
-
-# Check status like a pro
-docker-compose ps
-
-# Shut it down
-docker-compose down
+cd ~/mod/mod/core/store
+docker compose up --build         # API: 50150, App: 50151
+# open http://localhost:50151
 ```
 
-## 📁 Project Structure
-
-```
-store/
-├── 🎯 store.py              # Core engine - where the magic happens
-├── 🐳 docker-compose.yml    # Container orchestration
-├── 🧪 test/
-│   └── test.py             # Test suite - 100% coverage
-└── 📖 README.md            # You are here
+Tear down:
+```bash
+docker compose down -v            # also remove the data volume
 ```
 
-## 🧪 Testing
+The compose file uses the repo root as its build context so the image can
+include `mod/`, `mod/orbit/filecoin/`, `mod/orbit/hippius/`, `mod/orbit/dstore/`,
+and the root `config.json` / `requirements.txt` the mod runtime needs.
+
+### Local (no docker)
 
 ```bash
-# Run the full test suite
-python test/test.py
-
-# Watch it pass with flying colors ✅
+~/mod/mod/core/store/serve.sh     # starts uvicorn + next dev
 ```
 
-## 🎯 Use Cases
+Or programmatically via the mod protocol:
 
-- **Session Management** - Store user sessions with ease
-- **Cache Layer** - Lightning-fast data caching
-- **Configuration** - Persistent app settings
-- **Feature Flags** - Dynamic feature toggling
-- **Rate Limiting** - Track API usage
+```bash
+m store/serve                     # spawns serve.sh in background
+m store/api                       # API only
+m store/app                       # App only
+```
 
-## 🔥 Why This Store?
+## Endpoints
 
-- **No Bloat** - Only what you need, nothing you don't
-- **Production Ready** - Used in real-world applications
-- **Developer First** - API designed for humans
-- **Open Source** - MIT Licensed, fork it, own it
+| Method | Path        | Auth | Notes |
+|--------|-------------|------|-------|
+| GET    | `/health`   | —    | liveness |
+| GET    | `/status`   | —    | module + backend status |
+| GET    | `/backends` | —    | list backends |
+| GET    | `/nonce`    | —    | issue SIWE nonce for address |
+| POST   | `/verify`   | —    | verify SIWE signature → bearer token |
+| GET    | `/me`       | ✓    | current session address |
+| POST   | `/put`      | ✓    | multipart upload (form: file, backend, key) |
+| GET    | `/get`      | —    | retrieve by CID |
+| POST   | `/pin`      | ✓    | pin a CID on a backend |
+| GET    | `/list`     | ✓    | list caller's objects |
+| DELETE | `/rm`       | ✓    | remove an index record |
 
-## 📊 Performance
+## SIWE flow
 
-- **Write Speed**: ⚡ Microseconds
-- **Read Speed**: 🚀 Nanoseconds
-- **Memory**: 💪 Optimized
-- **Reliability**: 💯 Rock solid
+1. App: `GET /nonce?address=0x…` → `{nonce, domain, origin}`
+2. App builds EIP-4361 message, MetaMask `personal_sign`
+3. App: `POST /verify {message, signature}` → server `ecrecover`s, issues HMAC-SHA256 bearer token
+4. App stores token in `localStorage`, sends `Authorization: Bearer <token>` on each call
+5. Server-side: address is the per-object `owner` column
 
-## 🤝 Contributing
+Set `STORE_JWT_SECRET` in the environment for stable sessions across restarts.
 
-Pull requests welcome! Let's build something legendary together.
+## Environment
 
-## 📜 License
+| Var | Default | Notes |
+|-----|---------|-------|
+| `STORE_JWT_SECRET` | random per-run | HMAC secret |
+| `STORE_DOMAIN` | `localhost:50151` | SIWE domain field |
+| `STORE_ORIGIN` | `http://localhost:50151` | SIWE URI field |
+| `FILECOIN_GATEWAY` | `https://node.lighthouse.storage` | gateway for `put`/`get` when lotus not running |
+| `FILECOIN_GATEWAY_TOKEN` | — | bearer token for gateway uploads |
+| `HIPPIUS_S3_ENDPOINT` | `https://s3.hippius.com` | S3 gateway |
+| `HIPPIUS_S3_KEY` / `_SECRET` / `_BUCKET` | — | S3 credentials |
+| `HIPPIUS_IPFS_GATEWAY` | `https://get.hippius.network` | retrieval gateway |
+| `STORE_API_PORT` / `STORE_APP_PORT` | `50150` / `50151` | port overrides |
 
-MIT - Do whatever you want with it
+## Architecture
 
----
-
-<div align="center">
-
-**Built with 🔥 by legends, for legends**
-
-*Stay hungry. Stay foolish. Stay coding.* 🚀
-
-</div>
+```
+   ┌─────────────────────┐
+   │ Next.js (50151)     │  MetaMask + SIWE
+   └──────┬──────────────┘
+          │ Bearer JWT
+   ┌──────▼──────────────┐
+   │ FastAPI (50150)     │  /nonce /verify /put /get …
+   └──────┬──────────────┘
+          │
+   ┌──────▼──────────────┐
+   │ orbit/dstore        │  unified put/get/list, SQLite index
+   └──┬──────────────┬───┘
+      │              │
+ ┌────▼─────┐  ┌─────▼──────┐
+ │ orbit/   │  │ orbit/     │
+ │ filecoin │  │ hippius    │
+ │ (lotus)  │  │ (substrate)│
+ └──────────┘  └────────────┘
+```

@@ -1,6 +1,6 @@
 # API Server
 
-The API server (`mod/core/api/`) is a FastAPI application that serves as the central hub for module registration, IPFS content management, version control, and blockchain operations.
+The API server (`mod/core/api/`) is the central module for module registration, IPFS content management, version control, and blockchain operations. Like all modules, it is served via the core Flask server (`m.serve('api')`).
 
 ## Starting the API
 
@@ -20,20 +20,63 @@ The API server doubles as a decentralized module registry backed by IPFS.
 
 ### Register a Module
 
+The `reg()` method auto-dispatches based on input type: local module name, git URL, or IPFS CID.
+
 ```python
 api = m.mod('api')()
 
 # Register a local module (uploads to IPFS, generates schema)
 api.reg('mymod', key='main', comment='Initial release', public=True)
 
-# Register from a git URL
-api.reg_git('https://github.com/user/repo', name='mymod', key='main')
+# Register from a git URL (clones repo into portal)
+api.reg('https://github.com/user/repo', key='main')
 
-# Register from an IPFS CID
-api.reg_ipfs('QmXyz...')
+# Register from a GitHub shorthand (user/repo → https://github.com/user/repo)
+api.reg('user/repo', key='main')
+
+# Register from an IPFS CID (resolves config, optionally clones from git url inside)
+api.reg('QmXyz...', key='main', name='mymod')
 
 # Register all local modules at once
 api.regall(key='main', comment='Batch upload')
+```
+
+#### Git URL Registration
+
+Clones the repository into the portal directory and registers it. Supports full URLs and GitHub shorthand.
+
+```python
+# Full URL
+api.reg_git('https://github.com/user/repo', name='mymod', key='main')
+
+# Shorthand (2-part path auto-expands to GitHub)
+api.reg_git('user/repo', key='main')
+```
+
+```bash
+# CLI
+m api/reg mod=https://github.com/user/repo key=main
+m api/reg mod=user/repo key=main
+```
+
+#### CID Registration
+
+Resolves a CID from the store and registers the module it points to. The CID can contain:
+- A **config dict** with an optional `url` field pointing to a git repo (clones from git)
+- A **config dict** without a URL (creates a local module from the config)
+- A **legacy mod_info** with `content` and `schema` fields (writes files directly)
+
+```python
+# CID pointing to a config with a git url
+api.reg_cid('QmXyz...', key='main', name='mymod')
+
+# CID pointing to a config without a git url
+api.reg_cid('QmAbc...', key='main')
+```
+
+```bash
+# CLI
+m api/reg mod=QmXyz... key=main name=mymod
 ```
 
 ### What Happens During Registration

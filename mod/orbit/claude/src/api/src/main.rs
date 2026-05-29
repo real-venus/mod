@@ -7,6 +7,7 @@
 mod auth;
 mod jobs;
 mod api;
+mod snapshots;
 
 use std::path::PathBuf;
 use std::sync::Arc;

@@ -124,29 +124,43 @@ pub async fn verify(
         challenges.remove(&addr);
     }
 
-    // If no owner is set, make this user the owner
-    let owner_path = dirs::home_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join(".mod")
-        .join("claude")
-        .join("owner.json");
-
-    let is_new_owner = if !owner_path.exists() {
-        // Create the directory if it doesn't exist
-        if let Some(parent) = owner_path.parent() {
-            std::fs::create_dir_all(parent).ok();
-        }
-
-        // Set this user as owner
-        let owner_data = serde_json::json!({ "owner": addr });
-        if let Ok(json_str) = serde_json::to_string_pretty(&owner_data) {
-            std::fs::write(&owner_path, json_str).ok();
-            true
-        } else {
+    // Sign-in gate: owner → always; whitelisted addresses → allowed; else delegate
+    // to optional `gate_command` (owner-defined executable that returns 0 to allow).
+    // If no owner is set yet, this user claims ownership.
+    let existing_owner = get_owner_address();
+    let is_new_owner = match existing_owner {
+        Some(owner) => {
+            if owner != addr
+                && !read_whitelist().iter().any(|w| w == &addr)
+                && !run_gate_command(&addr)
+            {
+                return Err((
+                    StatusCode::FORBIDDEN,
+                    Json(serde_json::json!({
+                        "error": "Sign-in not permitted: address is not the owner, not whitelisted, and no gate matched"
+                    })),
+                ));
+            }
             false
         }
-    } else {
-        false
+        None => {
+            let owner_path = dirs::home_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                .join(".mod")
+                .join("claude")
+                .join("owner.json");
+            if let Some(parent) = owner_path.parent() {
+                std::fs::create_dir_all(parent).ok();
+            }
+            let owner_data = serde_json::json!({ "owner": addr });
+            match serde_json::to_string_pretty(&owner_data) {
+                Ok(json_str) => {
+                    std::fs::write(&owner_path, json_str).ok();
+                    true
+                }
+                Err(_) => false,
+            }
+        }
     };
 
     // Generate bearer token: address:timestamp:hmac
@@ -384,6 +398,103 @@ pub fn is_owner(address: &str) -> bool {
     match get_owner_address() {
         Some(owner) => address.to_lowercase() == owner,
         None => false,
+    }
+}
+
+/// Off-chain config dir (~/.mod/claude/) — holds owner.json, whitelist.json, gate.json.
+/// Kept off-repo because the whitelist is private; mounted into the container as a volume.
+pub fn private_dir() -> Option<std::path::PathBuf> {
+    Some(dirs::home_dir()?.join(".mod").join("claude"))
+}
+
+pub fn whitelist_path() -> Option<std::path::PathBuf> {
+    Some(private_dir()?.join("whitelist.json"))
+}
+
+fn gate_path() -> Option<std::path::PathBuf> {
+    Some(private_dir()?.join("gate.json"))
+}
+
+/// Read the lowercased whitelist from ~/.mod/claude/whitelist.json (a JSON string array).
+/// Returns [] if the file is absent or malformed — never errors.
+pub fn read_whitelist() -> Vec<String> {
+    let path = match whitelist_path() {
+        Some(p) => p,
+        None => return Vec::new(),
+    };
+    let content = match std::fs::read_to_string(&path) {
+        Ok(c) => c,
+        Err(_) => return Vec::new(),
+    };
+    let parsed: serde_json::Value = match serde_json::from_str(&content) {
+        Ok(v) => v,
+        Err(_) => return Vec::new(),
+    };
+    // Accept either `["0x..", ..]` or `{"addresses": ["0x..", ..]}`.
+    let arr = parsed
+        .as_array()
+        .cloned()
+        .or_else(|| parsed.get("addresses").and_then(|v| v.as_array()).cloned())
+        .unwrap_or_default();
+    arr.into_iter()
+        .filter_map(|v| v.as_str().map(|s| s.to_lowercase()))
+        .collect()
+}
+
+/// Persist the whitelist back to ~/.mod/claude/whitelist.json (used by the owner-only
+/// management endpoints in api.rs). Returns an error string on failure.
+pub fn write_whitelist(addresses: &[String]) -> Result<(), String> {
+    let path = whitelist_path().ok_or("no home dir")?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("mkdir: {}", e))?;
+    }
+    let json = serde_json::to_string_pretty(&addresses).map_err(|e| format!("encode: {}", e))?;
+    std::fs::write(&path, json).map_err(|e| format!("write: {}", e))
+}
+
+/// Read the optional `gate_command` from ~/.mod/claude/gate.json — a shell command that the
+/// owner defines to authorize sign-in based on arbitrary logic (token-gated, NFT-gated, etc).
+/// File format: {"command": "..."}.
+fn read_gate_command() -> Option<String> {
+    let path = gate_path()?;
+    let content = std::fs::read_to_string(&path).ok()?;
+    let data: serde_json::Value = serde_json::from_str(&content).ok()?;
+    let cmd = data.get("command").and_then(|v| v.as_str())?.trim().to_string();
+    if cmd.is_empty() { None } else { Some(cmd) }
+}
+
+/// Invoke the owner-defined `gate_command` (if any). The address is passed as $1 and on
+/// stdin as `{"address":"0x.."}`. Exit code 0 ⇒ allow, anything else ⇒ deny.
+/// Returns false if no command is configured (deny by default).
+pub fn run_gate_command(address: &str) -> bool {
+    let cmd = match read_gate_command() {
+        Some(c) => c,
+        None => return false,
+    };
+    let payload = serde_json::json!({ "address": address }).to_string();
+    let mut child = match std::process::Command::new("sh")
+        .arg("-c")
+        .arg(&cmd)
+        .arg("--")
+        .arg(address)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("gate_command spawn failed: {}", e);
+            return false;
+        }
+    };
+    if let Some(mut stdin) = child.stdin.take() {
+        use std::io::Write;
+        let _ = stdin.write_all(payload.as_bytes());
+    }
+    match child.wait() {
+        Ok(status) => status.success(),
+        Err(_) => false,
     }
 }
 

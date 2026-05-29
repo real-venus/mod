@@ -21,8 +21,8 @@ from unittest.mock import patch, MagicMock, Mock
 # Add parent directory to path so we can import the module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import mod as m
-from claude.mod import Mod
+import src.mod as m
+from src.mod import Mod
 
 
 # ── Helpers ──────────────────────────────────────────────────────
@@ -317,8 +317,9 @@ class TestTokenAuth:
 
     def test_is_owner_with_non_owner_token(self):
         """is_owner() rejects token from a non-owner key."""
+        import mod
         c = Mod()
-        other_key = m.key('test.claude.nonowner')
+        other_key = mod.key('test.claude.nonowner')
         c._owner = c.key.address.lower()
         tok = c.token(key=other_key)
         assert c.is_owner(tok) is False
@@ -332,8 +333,9 @@ class TestTokenAuth:
 
     def test_require_owner_rejects_non_owner_token(self):
         """require_owner() rejects token from non-owner."""
+        import mod
         c = Mod()
-        other_key = m.key('test.claude.nonowner2')
+        other_key = mod.key('test.claude.nonowner2')
         c._owner = c.key.address.lower()
         tok = c.token(key=other_key)
         with pytest.raises(PermissionError, match="Permission denied"):
@@ -515,18 +517,20 @@ class TestServerAvailability:
 
     def test_server_available_bad_url(self):
         """_server_available returns False for bad URL."""
-        c = Mod(api_url='http://localhost:1')
+        c = Mod(api_url='http://127.0.0.1:59999')
         assert c._server_available() is False
 
     def test_request_raises_on_bad_server(self):
         """_request raises ConnectionError for unreachable server."""
-        c = Mod(api_url='http://localhost:1')
-        with pytest.raises(ConnectionError):
-            c._request("GET", "/health", timeout=1)
+        c = Mod(api_url='http://127.0.0.1:59999')
+        # Prevent auto-start so it actually fails
+        with patch.object(c, '_start_api', return_value=False):
+            with pytest.raises(ConnectionError):
+                c._request("GET", "/health", timeout=1)
 
     def test_modules_fallback(self):
         """modules() falls back to m.mods() when server is down."""
-        c = Mod(api_url='http://localhost:1')
+        c = Mod(api_url='http://127.0.0.1:59999')
         mods = c.modules()
         assert isinstance(mods, list)
         # should have found some modules via m.mods()
@@ -646,18 +650,17 @@ class TestForwardPermissions:
         with pytest.raises(PermissionError):
             c.forward("Remove the deprecated function", key="0xother", background=False)
 
-    def test_forward_read_ok_for_non_owner(self, c):
-        """Read-only queries don't trigger PermissionError."""
-        with patch.object(c, '_run_cli', return_value={"result": "ok"}) as mock:
-            result = c.forward("Explain the code structure", key="0xother", background=False)
-            assert mock.called
+    def test_forward_read_rejected_for_non_owner(self, c):
+        """All forward calls require owner — even read-only queries."""
+        with pytest.raises(PermissionError):
+            c.forward("Explain the code structure", key="0xother")
 
     def test_forward_write_ok_for_owner_default(self):
         """Owner can call write operations without passing key (default)."""
         c = Mod()
         c._owner = c.key.address.lower()  # align owner with default key
-        with patch.object(c, '_run_cli', return_value={"result": "ok"}) as mock:
-            result = c.forward("Edit the login page", background=False)
+        with patch.object(c, '_request', return_value={"id": "test-job"}) as mock:
+            result = c.forward("Edit the login page")
             assert mock.called
 
     def test_forward_write_ok_with_owner_token(self):
@@ -665,8 +668,8 @@ class TestForwardPermissions:
         c = Mod()
         c._owner = c.key.address.lower()
         tok = c.token()
-        with patch.object(c, '_run_cli', return_value={"result": "ok"}) as mock:
-            result = c.forward("Edit the login page", key=tok, background=False)
+        with patch.object(c, '_request', return_value={"id": "test-job"}) as mock:
+            result = c.forward("Edit the login page", key=tok)
             assert mock.called
 
 
@@ -689,6 +692,250 @@ class TestSelfTest:
         result = c.test()
         assert result['passed'] > 0
         assert result['failed'] == 0, f"Self-test failures: {[t for t in result['tests'] if t['status'] == 'fail']}"
+
+
+class TestEnsureEnv:
+    """ensure_env() dependency checking."""
+
+    @pytest.fixture
+    def c(self):
+        mod = Mod()
+        return mod
+
+    def test_ensure_env_skips_when_cached(self, c, tmp_path):
+        """ensure_env reports cached when node_modules exist."""
+        pkg = tmp_path / 'package.json'
+        pkg.write_text('{}')
+        (tmp_path / 'node_modules').mkdir()
+        result = c.ensure_env(app_dir=str(tmp_path), api_dir=str(tmp_path))
+        assert result['app_install']['ok'] is True
+        assert result['app_install']['cached'] is True
+
+    def test_ensure_env_runs_npm_install(self, c, tmp_path):
+        """ensure_env runs npm install when node_modules missing."""
+        pkg = tmp_path / 'package.json'
+        pkg.write_text('{}')
+        with patch('subprocess.run', return_value=MagicMock(returncode=0)) as mock_run:
+            result = c.ensure_env(app_dir=str(tmp_path), api_dir=str(tmp_path))
+        assert result['app_install']['ok'] is True
+        mock_run.assert_called_once()
+        assert mock_run.call_args[0][0] == ['npm', 'install']
+
+    def test_ensure_env_reports_npm_failure(self, c, tmp_path):
+        """ensure_env captures npm install errors."""
+        pkg = tmp_path / 'package.json'
+        pkg.write_text('{}')
+        with patch('subprocess.run', return_value=MagicMock(returncode=1, stderr='ERESOLVE')):
+            result = c.ensure_env(app_dir=str(tmp_path), api_dir=str(tmp_path))
+        assert result['app_install']['ok'] is False
+        assert 'ERESOLVE' in result['app_install']['error']
+
+    def test_ensure_env_builds_rust_binary(self, c, tmp_path):
+        """ensure_env runs cargo build when binary missing."""
+        cargo = tmp_path / 'Cargo.toml'
+        cargo.write_text('[package]\nname = "test"')
+        (tmp_path / 'target' / 'release').mkdir(parents=True)
+        # binary does NOT exist
+        with patch('subprocess.run', return_value=MagicMock(returncode=0)) as mock_run:
+            result = c.ensure_env(app_dir=str(tmp_path), api_dir=str(tmp_path))
+        assert result['api_build']['ok'] is True
+        assert mock_run.call_args[0][0] == ['cargo', 'build', '--release']
+
+    def test_ensure_env_skips_build_when_binary_exists(self, c, tmp_path):
+        """ensure_env skips cargo build when binary already exists."""
+        cargo = tmp_path / 'Cargo.toml'
+        cargo.write_text('[package]\nname = "test"')
+        (tmp_path / 'target' / 'release').mkdir(parents=True)
+        (tmp_path / 'target' / 'release' / 'claude-jobs').write_text('bin')
+        result = c.ensure_env(app_dir=str(tmp_path), api_dir=str(tmp_path))
+        assert result['api_build']['ok'] is True
+        assert result['api_build']['cached'] is True
+
+
+class TestCheckService:
+    """_check_service() liveness polling."""
+
+    def test_check_service_success(self):
+        """Returns True when service responds."""
+        c = Mod()
+        with patch('urllib.request.urlopen') as mock_open:
+            mock_resp = MagicMock()
+            mock_resp.status = 200
+            mock_resp.__enter__ = lambda s: mock_resp
+            mock_resp.__exit__ = MagicMock(return_value=False)
+            mock_open.return_value = mock_resp
+            assert c._check_service('http://localhost:9999', retries=1, interval=0) is True
+
+    def test_check_service_failure(self):
+        """Returns False when service never responds."""
+        c = Mod()
+        with patch('urllib.request.urlopen', side_effect=Exception('refused')):
+            assert c._check_service('http://localhost:9999', retries=2, interval=0) is False
+
+    def test_check_service_retries(self):
+        """Retries until success."""
+        c = Mod()
+        call_count = [0]
+        def flaky_open(req, timeout=2):
+            call_count[0] += 1
+            if call_count[0] < 3:
+                raise Exception('not ready')
+            mock_resp = MagicMock()
+            mock_resp.status = 200
+            mock_resp.__enter__ = lambda s: mock_resp
+            mock_resp.__exit__ = MagicMock(return_value=False)
+            return mock_resp
+        with patch('urllib.request.urlopen', side_effect=flaky_open):
+            assert c._check_service('http://localhost:9999', retries=5, interval=0) is True
+        assert call_count[0] == 3
+
+
+class TestServe:
+    """serve() namespace registration, basePath, and health checks."""
+
+    @pytest.fixture
+    def c(self):
+        mod = Mod()
+        mod._owner = mod.key.address.lower()
+        return mod
+
+    def _serve_patches(self, c, mock_registry=None, popen_side_effect=None):
+        """Common patch context for serve() tests."""
+        if mock_registry is None:
+            mock_registry = MagicMock()
+        popen = popen_side_effect or MagicMock()
+        return (
+            patch.object(c, 'kill'),
+            patch.object(c, 'ensure_env', return_value={'app_install': {'ok': True, 'cached': True}, 'api_build': {'ok': True, 'cached': True}}),
+            patch.object(c, '_check_service', return_value=True),
+            patch.object(c, 'snapshot', return_value={'cid': 'QmTest'}),
+            patch('subprocess.Popen', popen),
+            patch('src.mod.m.mod', return_value=lambda: mock_registry),
+        )
+
+    def test_serve_registers_in_namespace(self, c):
+        """serve() registers claude in both API and app namespaces."""
+        mock_registry = MagicMock()
+        patches = self._serve_patches(c, mock_registry=mock_registry)
+        with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+            c.serve()
+        mock_registry.reg.assert_called_once_with('claude', 'http://localhost:8820')
+        mock_registry.reg_app.assert_called_once_with(
+            'claude', 'http://localhost:8821',
+            owner=c.key.address, api_url='http://localhost:8820')
+
+    def test_serve_sets_base_path_env(self, c):
+        """serve() passes NEXT_PUBLIC_BASE_PATH=/claude to the Next.js app."""
+        popen_calls = []
+
+        def capture_popen(*args, **kwargs):
+            popen_calls.append(kwargs)
+            return MagicMock()
+
+        patches = self._serve_patches(c, popen_side_effect=capture_popen)
+        with patches[0], patches[1], patches[2], patches[3], \
+             patch('subprocess.Popen', side_effect=capture_popen), patches[5]:
+            c.serve()
+
+        app_call = [call for call in popen_calls if call.get('env', {}).get('NEXT_PUBLIC_BASE_PATH')]
+        assert len(app_call) == 1, "Expected one Popen call with NEXT_PUBLIC_BASE_PATH"
+        assert app_call[0]['env']['NEXT_PUBLIC_BASE_PATH'] == '/claude'
+        assert app_call[0]['env']['NEXT_PUBLIC_API_PORT'] == '8820'
+
+    def test_serve_custom_ports(self, c):
+        """serve() respects custom port args for registration."""
+        mock_registry = MagicMock()
+        patches = self._serve_patches(c, mock_registry=mock_registry)
+        with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+            c.serve(api_port=9000, app_port=9001)
+        mock_registry.reg.assert_called_once_with('claude', 'http://localhost:9000')
+        mock_registry.reg_app.assert_called_once_with(
+            'claude', 'http://localhost:9001',
+            owner=c.key.address, api_url='http://localhost:9000')
+
+    def test_serve_calls_ensure_env(self, c):
+        """serve() calls ensure_env before starting services."""
+        with patch.object(c, 'kill'), \
+             patch.object(c, 'ensure_env', return_value={}) as mock_env, \
+             patch.object(c, '_check_service', return_value=True), \
+             patch.object(c, 'snapshot', return_value={'cid': 'QmTest'}), \
+             patch('subprocess.Popen', MagicMock()), \
+             patch('src.mod.m.mod', return_value=lambda: MagicMock()):
+            c.serve()
+        mock_env.assert_called_once()
+
+    def test_serve_checks_liveness(self, c):
+        """serve() verifies API and app are live after starting."""
+        with patch.object(c, 'kill'), \
+             patch.object(c, 'ensure_env', return_value={'app_install': {'ok': True, 'cached': True}, 'api_build': {'ok': True, 'cached': True}}), \
+             patch.object(c, '_check_service', return_value=True) as mock_check, \
+             patch.object(c, 'snapshot', return_value={'cid': 'QmTest'}), \
+             patch('subprocess.Popen', MagicMock()), \
+             patch('src.mod.m.mod', return_value=lambda: MagicMock()):
+            result = c.serve()
+        assert mock_check.call_count == 2  # once for API, once for app
+        assert result['checks']['api']['live'] is True
+        assert result['checks']['app']['live'] is True
+
+    def test_serve_publishes_cid_when_live(self, c):
+        """serve() snapshots and registers CID when all services are live."""
+        mock_registry = MagicMock()
+        mock_mod_registry = MagicMock()
+
+        def mock_mod(name):
+            if 'registry' in name and 'namespace' not in name:
+                return lambda: mock_mod_registry
+            return lambda: mock_registry
+
+        with patch.object(c, 'kill'), \
+             patch.object(c, 'ensure_env', return_value={'app_install': {'ok': True, 'cached': True}, 'api_build': {'ok': True, 'cached': True}}), \
+             patch.object(c, '_check_service', return_value=True), \
+             patch.object(c, 'snapshot', return_value={'cid': 'QmDeployCid'}) as mock_snap, \
+             patch('subprocess.Popen', MagicMock()), \
+             patch('src.mod.m.mod', side_effect=mock_mod):
+            result = c.serve()
+        mock_snap.assert_called_once_with(description='deploy')
+        assert result['cid'] == 'QmDeployCid'
+        mock_mod_registry.register.assert_called_once()
+
+    def test_serve_skips_cid_when_down(self, c):
+        """serve() does not snapshot when services fail."""
+        with patch.object(c, 'kill'), \
+             patch.object(c, 'ensure_env', return_value={'app_install': {'ok': True}, 'api_build': {'ok': True}}), \
+             patch.object(c, '_check_service', return_value=False), \
+             patch.object(c, '_tail_log', return_value='Error'), \
+             patch.object(c, 'snapshot') as mock_snap, \
+             patch('subprocess.Popen', MagicMock()), \
+             patch('src.mod.m.mod', return_value=lambda: MagicMock()):
+            result = c.serve()
+        mock_snap.assert_not_called()
+        assert 'cid' not in result
+
+    def test_serve_reports_failed_service(self, c):
+        """serve() reports check failures in results."""
+        with patch.object(c, 'kill'), \
+             patch.object(c, 'ensure_env', return_value={'app_install': {'ok': True}, 'api_build': {'ok': True}}), \
+             patch.object(c, '_check_service', return_value=False), \
+             patch.object(c, '_tail_log', return_value='Error: EADDRINUSE'), \
+             patch('subprocess.Popen', MagicMock()), \
+             patch('src.mod.m.mod', return_value=lambda: MagicMock()):
+            result = c.serve()
+        assert result['checks']['api']['live'] is False
+        assert 'EADDRINUSE' in result['checks']['api']['error']
+
+    def test_serve_namespace_failure_non_fatal(self, c):
+        """serve() continues even if namespace registration fails."""
+        def failing_mod(name):
+            raise RuntimeError("namespace unavailable")
+
+        with patch.object(c, 'kill'), \
+             patch.object(c, 'ensure_env', return_value={}), \
+             patch.object(c, '_check_service', return_value=True), \
+             patch.object(c, 'snapshot', return_value={'cid': 'QmTest'}), \
+             patch('subprocess.Popen', MagicMock()), \
+             patch('src.mod.m.mod', side_effect=failing_mod):
+            result = c.serve()
+        assert 'logs' in result
 
 
 class TestRepr:

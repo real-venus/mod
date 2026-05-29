@@ -24,6 +24,7 @@ except ImportError:
 
 from .skills.mod import Skills
 from .agents.mod import Agents
+from .memory.memory import Memory
 
 
 # ── path sandboxing ────────────────────────────────────────────────
@@ -81,6 +82,17 @@ RULES:
 - If stuck, use think to reflect on what went wrong and try a different approach.
 """
 
+    PROVIDERS = {
+        'openrouter': 'model.openrouter',
+        'venice': 'venice',
+    }
+
+    DEFAULT_MODELS = {
+        'model.openrouter': 'anthropic/claude-sonnet-4-5-20250929',
+        'openrouter': 'anthropic/claude-sonnet-4-5-20250929',
+        'venice': 'deepseek-v3.2',
+    }
+
     anchors = {
         'plan': ['<PLAN>', '</PLAN>'],
         'tool': ['<STEP>', '</STEP>'],
@@ -100,17 +112,27 @@ RULES:
 
     def __init__(self,
                  model: str = 'model.openrouter',
+                 provider: str = None,
                  memory: str = 'agent.memory',
                  goal: str = None,
                  skills: list = None,
                  **kwargs):
         self.skills = Skills()
         self.agents = Agents()
-        self.memory = m.mod(memory)() if m else __import__('agent.memory.memory', fromlist=['Memory']).Memory()
-        self.model = m.mod(model)() if m else None
+        self.memory = m.mod(memory)() if m else Memory()
+        # resolve provider: shorthand ('venice', 'openrouter') or full module path
+        provider = provider or model
+        self._provider = self.PROVIDERS.get(provider, provider)
+        self.model = m.mod(self._provider)() if m else None
         if goal:
             self.goal = goal
         self._skill_names = skills  # optional filter
+
+    def set_provider(self, provider: str):
+        """Switch LLM provider at runtime. Use 'openrouter', 'venice', or any module path."""
+        self._provider = self.PROVIDERS.get(provider, provider)
+        self.model = m.mod(self._provider)() if m else None
+        return {'provider': self._provider}
 
     # ── skill interface ──────────────────────────────────────────────
 
@@ -141,7 +163,8 @@ RULES:
     def run(self,
             query: str = 'help me with this',
             *extra_text,
-            model: Optional[str] = 'anthropic/claude-sonnet-4-5-20250929',
+            model: Optional[str] = None,
+            provider: str = None,
             path: str = None,
             temperature: float = 0.0,
             max_tokens: int = 100000,
@@ -152,13 +175,20 @@ RULES:
             save: bool = False,
             key: str = None,
             allowed_paths: list = None,
+            free: bool = False,
             **kwargs) -> List[Dict[str, Any]]:
         """Run the agent loop: query -> LLM -> parse step -> execute skill -> repeat.
 
         Args:
+            model: model name on the provider (e.g. 'anthropic/claude-sonnet-4-5-20250929' for openrouter,
+                   'deepseek-v3.2' for venice). Defaults to provider's default model.
+            provider: LLM provider — 'openrouter', 'venice', or any module path. Switches at runtime.
             allowed_paths: list of allowed write paths, or None for unrestricted (owner).
                            Non-owners are restricted to their portal directory.
         """
+        if provider:
+            self.set_provider(provider)
+        model = model or self.DEFAULT_MODELS.get(self._provider, 'anthropic/claude-sonnet-4-5-20250929')
         self._allowed_paths = allowed_paths
         query = query + ' ' + ' '.join(extra_text) if extra_text else query
         path = path or (m.dp(mod) if m and mod else os.getcwd())
@@ -177,18 +207,26 @@ RULES:
             if consecutive_errors >= 3:
                 self.memory.add('hint', 'Multiple errors in a row. Use think to reflect on what is going wrong and try a different approach.')
                 consecutive_errors = 0
-            output = self.model.forward(
-                str(self.memory.get()),
-                stream=True,
-                model=model,
-                max_tokens=max_tokens,
-                temperature=temperature
-            )
-            plan = self.plan(output, safety=safety)
+            try:
+                output = self.model.forward(
+                    str(self.memory.get()),
+                    stream=True,
+                    model=model,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    free=free,
+                )
+                plan = self.plan(output, safety=safety)
+            except Exception as e:
+                print(f"Model error: {e}")
+                plan = [{'tool': 'error', 'params': {}, 'error': str(e)}]
             history.append(plan)
             self.memory.add('history', history)
-            if plan and plan[-1]['tool'].lower() == 'finish':
+            if plan and plan[-1]['tool'].lower() in ('finish', 'response'):
                 print('Agent finished')
+                break
+            if plan and plan[-1]['tool'].lower() == 'error':
+                print('Agent stopped: model error')
                 break
             # track consecutive errors for recovery
             if plan and any(s.get('error') for s in plan):
@@ -203,23 +241,32 @@ RULES:
 
     def plan(self, output: str, safety: bool = False) -> list:
         """Parse LLM output into steps and execute them."""
-        steps = self.parse_steps(output)
+        steps, raw_text = self.parse_steps(output)
+        if not steps and raw_text.strip():
+            # LLM responded with text but no tool calls — return as a response step
+            return [{'tool': 'response', 'params': {}, 'result': raw_text.strip()}]
         steps = self.run_plan(steps, safety=safety)
         return steps
 
-    def parse_steps(self, output: str) -> list:
-        """Stream LLM output and extract steps from anchors."""
+    def parse_steps(self, output: str) -> tuple:
+        """Stream LLM output and extract steps from anchors.
+
+        Returns:
+            (plan, raw_text) — plan is list of step dicts, raw_text is full LLM output
+        """
         text = ''
+        raw = ''
         plan = []
         for ch in output:
             text += ch
+            raw += ch
             print(ch, end='')
             if self.anchors['tool'][0] in text and self.anchors['tool'][1] in text:
                 step = self._extract_step(text)
                 if step:
                     plan.append(step)
                 text = text.split(self.anchors['tool'][-1])[-1]
-        return plan
+        return plan, raw
 
     def _extract_step(self, text: str) -> Optional[dict]:
         """Extract a single step JSON from between STEP anchors."""
@@ -312,9 +359,9 @@ class Mod(Agent):
         self.auth = m.mod('auth.base')() if m else None
         self._owner = (self.key.address.lower() if self.key else
                        svc_config.get('owner'))
-        self._portal_root = (m.paths['orbit']['portal']
-                             if m and hasattr(m, 'paths') else
-                             str(self.module_dir.parent.parent / 'portal'))
+        self._mods_root = (m.paths['orbit']['mods']
+                           if m and hasattr(m, 'paths') else
+                           str(self.module_dir.parent / 'registry' / 'mods'))
 
         # ── access control (gate) ──
         # public: anyone can call these
@@ -322,9 +369,11 @@ class Mod(Agent):
         self._acl_path = self.module_dir / '.acl.json'
         self._acl = self._load_acl()
         self._public_actions = {'status', 'health', 'skills', 'schema',
-                                'agents', 'agent', 'chains'}
+                                'agents', 'agent', 'chains', 'agent_cids',
+                                'agent_load'}
         self._admin_actions = {'run', 'plan', 'skill', 'serve', 'kill',
-                               'test', 'grant', 'revoke', 'acl'}
+                               'test', 'grant', 'revoke', 'acl',
+                               'agent_save', 'agent_install'}
 
     # ── permissions (Claude module interface) ────────────────────────────
 
@@ -365,14 +414,14 @@ class Mod(Agent):
         """Return allowed write paths for the caller.
 
         Owner: None (unrestricted)
-        Others: [portal/{address}/]
+        Others: [registry/mods/{address}/]
         """
         if self.is_owner(key):
             return None
         addr = self._resolve_address(key).lower()
-        portal_dir = os.path.join(self._portal_root, addr)
-        os.makedirs(portal_dir, exist_ok=True)
-        return [portal_dir]
+        mods_dir = os.path.join(self._mods_root, addr)
+        os.makedirs(mods_dir, exist_ok=True)
+        return [mods_dir]
 
     # ── access control (gate) ────────────────────────────────────────
 
@@ -485,6 +534,8 @@ class Mod(Agent):
             'agents': lambda: self.agents.forward(kwargs.get('name'), **kwargs),
             'agent': lambda: self.agents.forward(kwargs.get('name', 'default')),
             'chains': lambda: self.agents.chains(),
+            'agent_cids': lambda: self.agents.forward(action='cids'),
+            'agent_load': lambda: self.agents.load(kwargs.get('cid', ''), shares=kwargs.get('shares')),
             # admin (owner + granted)
             'run': lambda: self._run(**kwargs),
             'plan': lambda: super(Mod, self).plan(kwargs.get('output', ''), safety=kwargs.get('safety', False)),
@@ -492,6 +543,8 @@ class Mod(Agent):
             'serve': lambda: self.serve(kwargs.get('api_port'), kwargs.get('app_port'), kwargs.get('dev', True)),
             'kill': lambda: self.kill(kwargs.get('service')),
             'test': lambda: self.test(),
+            'agent_save': lambda: self.agents.save(**{k: v for k, v in kwargs.items() if k not in ('action',)}),
+            'agent_install': lambda: self.agents.load_and_create(cid=kwargs.get('cid', ''), shares=kwargs.get('shares'), key=key),
             # owner only
             'grant': lambda: self.grant(kwargs.get('address', ''), kwargs.get('actions'), key),
             'revoke': lambda: self.revoke(kwargs.get('address', ''), key),
@@ -525,7 +578,8 @@ class Mod(Agent):
         agent_type = kwargs.get('agent_type') or kwargs.get('agent')
         agent_goal = None
         agent_skills = kwargs.get('skills')
-        agent_model = kwargs.get('model', 'anthropic/claude-sonnet-4-5-20250929')
+        agent_model = kwargs.get('model')
+        agent_provider = kwargs.get('provider')
 
         if agent_type and agent_type in self.agents.ls():
             agent_config = self.agents.get(agent_type)
@@ -544,6 +598,7 @@ class Mod(Agent):
             return self.run(
                 query=kwargs.get('query', 'help me with this'),
                 model=agent_model,
+                provider=agent_provider,
                 path=kwargs.get('path'),
                 temperature=kwargs.get('temperature', 0.0),
                 max_tokens=kwargs.get('max_tokens', 100000),
@@ -554,6 +609,7 @@ class Mod(Agent):
                 save=kwargs.get('save', False),
                 key=kwargs.get('key'),
                 allowed_paths=allowed_paths,
+                free=kwargs.get('free', False),
             )
         finally:
             self.goal = original_goal
@@ -576,7 +632,8 @@ class Mod(Agent):
         if api_path.exists():
             env = os.environ.copy()
             env['PORT'] = str(api_port)
-            env['PYTHONPATH'] = str(self.module_dir) + os.pathsep + str(self.src_dir)
+            mod_root = str(self.module_dir.parent.parent.parent)
+            env['PYTHONPATH'] = mod_root + os.pathsep + str(self.module_dir) + os.pathsep + str(self.src_dir)
 
             api_log = open(log_dir / 'api.log', 'w')
             cmd = ['python3', '-m', 'uvicorn', 'api:app', '--host', '0.0.0.0',

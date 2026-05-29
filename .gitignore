@@ -21,7 +21,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -311,5 +310,8 @@ Thumbs.db
 
 .windsurf
 .ipfs
+
+# Auto-generated serve scripts (machine-specific paths)
+**/_serve.sh
 
 mod/mods/ipfs-service

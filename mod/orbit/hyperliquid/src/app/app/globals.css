@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body { background: #06070a; color: #e6edf3; }
+* { box-sizing: border-box; }
+
+@layer components {
+  .panel { @apply bg-panel border border-border rounded-md; }
+  .panel-hover { @apply hover:border-accent/40 transition-colors; }
+  .btn { @apply px-3 py-1.5 text-xs uppercase tracking-wider border border-border rounded
+           hover:bg-panel2 hover:border-accent/50 transition-colors; }
+  .btn-primary { @apply px-3 py-1.5 text-xs uppercase tracking-wider rounded
+                   bg-accent text-bg hover:bg-accent/90 transition-colors; }
+  .btn-danger { @apply px-3 py-1.5 text-xs uppercase tracking-wider rounded
+                  border border-loss/50 text-loss hover:bg-loss/10 transition-colors; }
+  .pill { @apply text-[10px] uppercase tracking-wider px-1.5 py-0.5 border border-border rounded; }
+  .input { @apply bg-bg border border-border rounded px-2 py-1.5 text-sm
+             outline-none focus:border-accent2/60; }
+  .label { @apply block text-[10px] uppercase tracking-wider text-muted mb-1; }
+  .table-row { @apply border-b border-border/60; }
+  .stat { @apply text-xs text-muted uppercase tracking-wider; }
+  .num { @apply font-mono tabular-nums; }
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #0d0f14; }
+::-webkit-scrollbar-thumb { background: #1c2230; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #2a3142; }

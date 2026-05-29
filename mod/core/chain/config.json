@@ -59,9 +59,8 @@
                     "abi": "QmPQ7eQToFSRWodVoEmHAxjPwY45AdJxEG2WNLKi2BSbjJ"
                 },
                 "ManualPriceOracle": {
-                    "address": "0x40C37CA1321f967831c86E5AF8935aC043F9adF1",
-                    "contract": "ManualPriceOracle",
-                    "abi": "QmU7xoL9tvziwgXwnzEHnVK9K6raQ29SERhDWiMUNAggJJ"
+                    "address": "0x50a37f1b9b4463B79f256857D1AE092A371aC198",
+                    "contract": "ManualPriceOracle"
                 },
                 "TokenGate": {
                     "address": "0x97c7a7066e80F13Ee4ABEdeaA223CbC71472de8b",
@@ -79,9 +78,8 @@
                     "abi": "QmTJxXo2M6EbR5Vw61X3MjtWQzQ13GDFgEJRWjRYLV4kHg"
                 },
                 "Registry": {
-                    "address": "0x4f9e72C935e5762E941F98DA50696cb022008a43",
-                    "contract": "Registry",
-                    "abi": "QmYc8End47rNANtqd3UMpTkqqn8DtR6GNipyDnvjLnUbqL"
+                    "address": "0xF7a5498369d7ceA13461BcfDC65995B8743baE97",
+                    "contract": "Registry"
                 },
                 "Treasury": {
                     "address": "0xe9a96Ae58108E9Dd7e14c5DdCb66C175BB877785",
@@ -97,6 +95,10 @@
                     "address": "0x6F941E762C7Df3db8DfD0C47d53Acd85D73Da442",
                     "contract": "Debit",
                     "abi": "QmbPgToxEaDe5PKkhzsKptXTPGNY4TCWXGGNWtudhVJEZt"
+                },
+                "Perms": {
+                    "address": "0x5ee790Cd1FBFdeDfDD5Ea681fCdDF8a0e259A23A",
+                    "contract": "Perms"
                 }
             }
         },
@@ -151,5 +153,6 @@
                 }
             }
         }
-    }
+    },
+    "schema": "QmXm5PhSuCgUaGkgHMxUUjQxsi65ooY67qWR4dp68YvLxv"
 }

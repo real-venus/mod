@@ -562,6 +562,20 @@ async fn run_claude_process(
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
 
+    // Prefer the OAuth subscription token (~/.claude/.credentials.json) over
+    // any inherited ANTHROPIC_API_KEY. Mirrors docker-entrypoint.sh so local
+    // serve mode behaves the same as the container. HOME is forwarded
+    // explicitly so the child resolves the credentials file in the right place
+    // even when the parent was spawned via runuser/su without env reset.
+    let home = std::env::var("HOME").unwrap_or_default();
+    if !home.is_empty() {
+        cmd.env("HOME", &home);
+        let creds_path = format!("{}/.claude/.credentials.json", home);
+        if std::path::Path::new(&creds_path).exists() {
+            cmd.env_remove("ANTHROPIC_API_KEY");
+        }
+    }
+
     // Put child in its own process group so kill(-pid) works
     #[cfg(unix)]
     unsafe {

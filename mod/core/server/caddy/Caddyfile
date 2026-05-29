@@ -1,0 +1,187 @@
+{
+    admin localhost:2099
+    auto_https off
+}
+
+(module_routes) {
+    @agent_api path /api/agent /api/agent/*
+    handle @agent_api {
+        uri strip_prefix /api/agent
+        reverse_proxy agent-api:50117
+    }
+    @agent_app path /agent /agent/*
+    handle @agent_app {
+        reverse_proxy agent-api:3117
+    }
+    @bloctime_api path /api/bloctime /api/bloctime/*
+    handle @bloctime_api {
+        uri strip_prefix /api/bloctime
+        reverse_proxy bloctime:8851
+    }
+    @bloctime_app path /bloctime /bloctime/*
+    handle @bloctime_app {
+        reverse_proxy bloctime:8852
+    }
+    @bridge_api path /api/bridge /api/bridge/*
+    handle @bridge_api {
+        uri strip_prefix /api/bridge
+        reverse_proxy bridge:8840
+    }
+    @bridge_app path /bridge /bridge/*
+    handle @bridge_app {
+        reverse_proxy bridge:8841
+    }
+    @latexhub_api path /api/latexhub /api/latexhub/*
+    handle @latexhub_api {
+        uri strip_prefix /api/latexhub
+        reverse_proxy latexhub-api:50200
+    }
+    @latexhub_app path /latexhub /latexhub/*
+    handle @latexhub_app {
+        reverse_proxy latexhub-api:3200
+    }
+    @openclaw_api path /api/openclaw /api/openclaw/*
+    handle @openclaw_api {
+        uri strip_prefix /api/openclaw
+        reverse_proxy openclaw:50120
+    }
+    @openclaw_app path /openclaw /openclaw/*
+    handle @openclaw_app {
+        reverse_proxy openclaw:50121
+    }
+    @polymarket_api path /api/polymarket /api/polymarket/*
+    handle @polymarket_api {
+        uri strip_prefix /api/polymarket
+        reverse_proxy polymarket:50091
+    }
+    # CLOB L2 passthrough (order, balance-allowance, orders, cancel).
+    # Browser can't hit clob.polymarket.com directly (no CORS on L2), so we
+    # reverse-proxy authenticated L2 calls straight through. Must come BEFORE
+    # the polymarket_app handler so it isn't shadowed by /api/polymarket-l2
+    # falling into a catch-all.
+    @polymarket_l2 path /api/polymarket-l2 /api/polymarket-l2/*
+    handle @polymarket_l2 {
+        uri strip_prefix /api/polymarket-l2
+        reverse_proxy https://clob.polymarket.com {
+            header_up Host clob.polymarket.com
+        }
+    }
+    @polymarket_app path /polymarket /polymarket/*
+    handle @polymarket_app {
+        reverse_proxy polymarket:3091
+    }
+    @copytensor_api path /api/copytensor /api/copytensor/*
+    handle @copytensor_api {
+        uri strip_prefix /api/copytensor
+        reverse_proxy copytensor:50150
+    }
+    @copytensor_app path /copytensor /copytensor/*
+    handle @copytensor_app {
+        reverse_proxy copytensor:3150
+    }
+    @chain_archive_api path /api/chain-archive /api/chain-archive/*
+    handle @chain_archive_api {
+        uri strip_prefix /api/chain-archive
+        reverse_proxy chain:50103
+    }
+    @prefi_app path /prefi /prefi/*
+    handle @prefi_app {
+        reverse_proxy prefi:3160
+    }
+    @codex_api path /api/codex /api/codex/*
+    handle @codex_api {
+        uri strip_prefix /api/codex
+        reverse_proxy host.docker.internal:8830
+    }
+    @codex_app path /codex /codex/*
+    handle @codex_app {
+        reverse_proxy host.docker.internal:8831
+    }
+    @tether_api path /api/tether /api/tether/*
+    handle @tether_api {
+        uri strip_prefix /api/tether
+        reverse_proxy host.docker.internal:8850
+    }
+    @tether_app path /tether /tether/*
+    handle @tether_app {
+        reverse_proxy host.docker.internal:8851
+    }
+    @dev_api path /api/dev /api/dev/*
+    handle @dev_api {
+        uri strip_prefix /api/dev
+        reverse_proxy host.docker.internal:8870
+    }
+    @dev_app path /dev /dev/*
+    handle @dev_app {
+        reverse_proxy host.docker.internal:8870
+    }
+    @claude_api path /api/claude /api/claude/*
+    handle @claude_api {
+        uri strip_prefix /api/claude
+        reverse_proxy claude:8820
+    }
+    @claude_app path /claude /claude/*
+    handle @claude_app {
+        reverse_proxy claude:8823
+    }
+    @whitepaper_api path /api/whitepaper /api/whitepaper/*
+    handle @whitepaper_api {
+        uri strip_prefix /api/whitepaper
+        reverse_proxy host.docker.internal:50106
+    }
+    @whitepaper_app path /whitepaper /whitepaper/*
+    handle @whitepaper_app {
+        reverse_proxy host.docker.internal:3106
+    }
+    @localfs_api path /api/localfs /api/localfs/*
+    handle @localfs_api {
+        uri strip_prefix /api/localfs
+        reverse_proxy host.docker.internal:8860
+    }
+    @localfs_app path /localfs /localfs/*
+    handle @localfs_app {
+        uri strip_prefix /localfs
+        reverse_proxy host.docker.internal:8861
+    }
+}
+
+:3000 {
+    import module_routes
+    handle /* {
+        reverse_proxy host.docker.internal:3001
+    }
+}
+
+modc2.com {
+    import module_routes
+    @main_api path /api /api/*
+    handle @main_api {
+        uri strip_prefix /api
+        reverse_proxy {$PM2_HOST:localhost}:8000
+    }
+    handle /* {
+        reverse_proxy host.docker.internal:3001
+    }
+}
+
+api.modc2.com {
+    @cors_preflight method OPTIONS
+
+    header Access-Control-Allow-Origin "https://modc2.com"
+    header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    header Access-Control-Allow-Headers "Content-Type, Accept, Authorization, token"
+    header Access-Control-Max-Age "3600"
+
+    handle @cors_preflight {
+        respond 204
+    }
+
+    handle /bridge/* {
+        uri strip_prefix /bridge
+        reverse_proxy bridge:8840
+    }
+
+    handle /* {
+        reverse_proxy {$PM2_HOST:localhost}:8000
+    }
+}
